@@ -50,8 +50,9 @@ then re-run the seed — same end state for the pilot.)
 
 ## B. Backend on Render
 
-1. **New → Blueprint** and select this repo (Render reads `backend/render.yaml`).
-   Or **New → Web Service**, runtime **Docker**, root directory `backend`.
+1. **New → Blueprint** and select this repo (Render reads `render.yaml` at the
+   repo root). Or **New → Web Service**, runtime **Docker**, root directory
+   `backend`.
 2. Service name `rise-schedule-hub-api` → URL
    `https://rise-schedule-hub-api.onrender.com`.
 3. Set environment variables (Dashboard → Environment):

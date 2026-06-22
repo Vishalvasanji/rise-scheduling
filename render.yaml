@@ -1,7 +1,8 @@
-# Render Blueprint — FastAPI backend (API + MCP-capable) for the RISE Schedule
-# Hub pilot. Docker-native so the same container runs locally and on Render, and
-# later lifts to Azure unchanged (SCOPE §8). Set the secret env vars in the
-# Render dashboard (sync: false) — never commit them.
+# Render Blueprint — must live at the repository ROOT so Render can find it.
+# FastAPI backend (API + MCP-capable) for the RISE Schedule Hub pilot. Docker so
+# the same container runs locally and on Render, and later lifts to Azure (SCOPE
+# §8). Set the secret env vars in the Render dashboard (sync: false) — never
+# commit them. Paths are relative to the repo root.
 services:
   - type: web
     name: rise-schedule-hub-api
@@ -19,7 +20,7 @@ services:
       - key: AUTH_SECRET
         sync: false
       # The deployed Vercel origin (comma-separated list allowed), e.g.
-      # https://rise-schedule-hub.vercel.app
+      # https://rise-scheduling.vercel.app
       - key: FRONTEND_ORIGIN
         sync: false
       - key: PILOT_ANCHOR_DATE
