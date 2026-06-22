@@ -25,3 +25,20 @@ services:
         sync: false
       - key: PILOT_ANCHOR_DATE
         value: "2026-06-22"
+
+  # MCP server (Claude chat connector) — Streamable HTTP at /mcp. Same image and
+  # service layer as the API, so chat writes go through the same engine + audit
+  # path. No healthCheckPath: Render falls back to a port check, and /mcp does not
+  # answer a plain GET health probe. DB is migrated/seeded by the API service.
+  - type: web
+    name: rise-schedule-hub-mcp
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python -m app.mcp.server --http
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PILOT_ANCHOR_DATE
+        value: "2026-06-22"

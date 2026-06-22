@@ -91,6 +91,28 @@ backend. That is the only second deploy needed.
 
 ---
 
+## E. Claude chat connector (MCP server)
+
+The Blueprint defines a second Render service, `rise-schedule-hub-mcp`, that runs
+the MCP server over **Streamable HTTP** at `/mcp` (same image + service layer as
+the API, so chat writes go through the same engine + audit path).
+
+1. After a Blueprint sync, set its `DATABASE_URL` env var (same Turso URL as the
+   API). It deploys to e.g. `https://rise-schedule-hub-mcp.onrender.com`.
+2. The MCP endpoint is `https://rise-schedule-hub-mcp.onrender.com/mcp`.
+3. In Claude (claude.ai → Settings → Connectors → **Add custom connector**, a
+   paid-plan feature), add that `/mcp` URL. Claude will list the tools
+   (`list_projects`, `get_schedule`, `create_task`, `update_task`,
+   `delete_task`, `create_dependency`, `get_critical_path`, `generate_report`).
+
+> Security: the pilot MCP endpoint is unauthenticated (matching the open pilot
+> API). Anyone with the URL can read/write the dummy data. Add an auth token /
+> OAuth before any real data — same gate as the API (SCOPE §11).
+
+Local alternative (no hosting): Claude Desktop / Claude Code can launch the
+stdio server directly — `python -m app.mcp.server` (no `--http`) — pointed at any
+`DATABASE_URL`.
+
 ## Verify end-to-end
 
 1. Open the Vercel URL — the sidebar lists 5 projects + the leadership dashboard.
