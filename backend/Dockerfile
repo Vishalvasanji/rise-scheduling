@@ -14,6 +14,7 @@ COPY . .
 
 EXPOSE 8000
 
-# Run migrations, then serve. (MCP server is launched separately:
-#   python -m app.mcp.server)
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000"]
+# On boot: apply migrations, seed dummy data only if the DB is empty, then serve.
+# Bind to $PORT when the host provides it (Render), else default 8000 locally.
+# (MCP server is launched separately: python -m app.mcp.server)
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed.run_seed --if-empty && uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
