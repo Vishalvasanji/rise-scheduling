@@ -1,0 +1,66 @@
+"""API smoke tests: CRUD, schedule read, and engine-error status codes."""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.main import app
+
+client = TestClient(app)
+ANCHOR = "2026-06-22"
+
+
+@pytest.fixture()
+def project_id() -> int:
+    resp = client.post("/projects", json={"name": "API Test", "anchor_date": ANCHOR})
+    assert resp.status_code == 201
+    return resp.json()["id"]
+
+
+def test_health():
+    assert client.get("/health").json() == {"status": "ok"}
+
+
+def test_task_crud_and_schedule(project_id):
+    a = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
+    b = client.post(f"/projects/{project_id}/tasks", json={"name": "B", "duration_days": 3}).json()
+    dep = client.post(
+        "/dependencies",
+        json={"predecessor_id": a["id"], "successor_id": b["id"], "type": "FS"},
+    )
+    assert dep.status_code == 201
+
+    schedule = client.get(f"/projects/{project_id}/schedule").json()
+    assert len(schedule["tasks"]) == 2
+    assert len(schedule["dependencies"]) == 1
+    b_out = next(t for t in schedule["tasks"] if t["id"] == b["id"])
+    assert b_out["planned_start"] is not None
+    assert b_out["is_critical"] is True
+
+
+def test_cycle_returns_409(project_id):
+    a = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 2}).json()
+    b = client.post(f"/projects/{project_id}/tasks", json={"name": "B", "duration_days": 2}).json()
+    client.post("/dependencies", json={"predecessor_id": a["id"], "successor_id": b["id"]})
+    resp = client.post("/dependencies", json={"predecessor_id": b["id"], "successor_id": a["id"]})
+    assert resp.status_code == 409
+    assert resp.json()["error"] == "circular_dependency"
+    assert resp.json()["cycle"][0] == resp.json()["cycle"][-1]
+
+
+def test_date_conflict_returns_422(project_id):
+    t = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
+    resp = client.patch(
+        f"/tasks/{t['id']}",
+        json={"actual_start": "2026-06-26", "actual_finish": "2026-06-22"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"] == "date_conflict"
+
+
+def test_delete_task(project_id):
+    payload = {"name": "Temp", "duration_days": 1}
+    t = client.post(f"/projects/{project_id}/tasks", json=payload).json()
+    assert client.delete(f"/tasks/{t['id']}").status_code == 204
+    assert client.get(f"/tasks/{t['id']}").status_code == 404

@@ -1,0 +1,38 @@
+"""Application configuration. All config comes from env vars (SCOPE §8)."""
+
+from __future__ import annotations
+
+from datetime import date
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Pilot settings, loaded from the environment / a local .env file."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Data-access layer — the single DB swap point (SQLite -> Turso/Postgres).
+    database_url: str = "sqlite:///./rise_schedule.db"
+
+    # Auth (pilot only, behind one swappable module).
+    auth_mode: str = "jwt"
+    auth_secret: str = "change-me-in-real-deployments-this-is-a-pilot-dummy-secret"
+    auth_token_ttl_minutes: int = 720
+
+    # Schedule anchor for the pilot (P1 start date).
+    pilot_anchor_date: date = date(2026, 6, 22)
+
+    # CORS.
+    frontend_origin: str = "http://localhost:5173"
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return a cached Settings instance."""
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
