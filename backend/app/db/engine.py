@@ -17,14 +17,18 @@ _SessionLocal: sessionmaker[Session] | None = None
 
 
 def _build_engine(url: str) -> Engine:
+    is_sqlite_family = url.startswith("sqlite")
+    is_libsql = "+libsql" in url  # Turso (libSQL) — NOT pysqlite
+
     connect_args = {}
-    if url.startswith("sqlite"):
-        # Needed when the same SQLite connection is shared across threads
-        # (FastAPI dependency / TestClient).
+    # check_same_thread is a pysqlite-only arg; libSQL/Turso must not receive it.
+    if is_sqlite_family and not is_libsql:
         connect_args["check_same_thread"] = False
     engine = create_engine(url, connect_args=connect_args, future=True)
 
-    if url.startswith("sqlite"):
+    # PRAGMA foreign_keys is a local-pysqlite concern; on Turso auth/url config
+    # travels in the connection string and this listener does not apply.
+    if is_sqlite_family and not is_libsql:
 
         @event.listens_for(engine, "connect")
         def _set_sqlite_pragma(dbapi_connection, _record):  # noqa: ANN001

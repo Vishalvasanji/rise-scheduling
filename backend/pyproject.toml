@@ -9,6 +9,7 @@ dependencies = [
     "pydantic[email]>=2.6",
     "pydantic-settings>=2.2",
     "sqlalchemy>=2.0",
+    "sqlalchemy-libsql>=0.1.0",  # Turso (libSQL) dialect for the hosted pilot DB
     "alembic>=1.13",
     "passlib[bcrypt]>=1.7",
     "bcrypt<4.1",  # passlib 1.7.x is incompatible with bcrypt>=4.1

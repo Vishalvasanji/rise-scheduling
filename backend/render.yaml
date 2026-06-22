@@ -1,0 +1,26 @@
+# Render Blueprint — FastAPI backend (API + MCP-capable) for the RISE Schedule
+# Hub pilot. Docker-native so the same container runs locally and on Render, and
+# later lifts to Azure unchanged (SCOPE §8). Set the secret env vars in the
+# Render dashboard (sync: false) — never commit them.
+services:
+  - type: web
+    name: rise-schedule-hub-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Turso (libSQL) connection URL, including the auth token, e.g.
+      # sqlite+libsql://<db-host>/?authToken=<token>&secure=true
+      - key: DATABASE_URL
+        sync: false
+      # Random secret for pilot JWT signing.
+      - key: AUTH_SECRET
+        sync: false
+      # The deployed Vercel origin (comma-separated list allowed), e.g.
+      # https://rise-schedule-hub.vercel.app
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: PILOT_ANCHOR_DATE
+        value: "2026-06-22"
