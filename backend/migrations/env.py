@@ -6,7 +6,6 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 from app.config import get_settings
 from app.db.base import Base
@@ -33,11 +32,11 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Reuse the application's engine builder so libSQL/Turso auth (and the
+    # SQLite-only tweaks) are applied identically to migrations and the app.
+    from app.db.engine import get_engine
+
+    connectable = get_engine()
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

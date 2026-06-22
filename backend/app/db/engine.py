@@ -7,6 +7,8 @@ Turso (libSQL) or Postgres is a change to ``DATABASE_URL`` only. SQLite needs
 
 from __future__ import annotations
 
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -16,13 +18,32 @@ _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
 
 
+def _prepare_libsql(url: str) -> tuple[str, dict]:
+    """Split a Turso libSQL URL into a clean URL + connect_args.
+
+    The libSQL dialect expects the Turso auth token via ``connect_args``
+    (``auth_token``), NOT the URL query string, so we lift ``authToken`` /
+    ``auth_token`` out of the query and keep the rest (e.g. ``secure=true``).
+    A lone ``/`` path is dropped so only the host identifies the remote DB.
+    """
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    token = query.pop("authToken", None) or query.pop("auth_token", None)
+    path = "" if parts.path in ("", "/") else parts.path
+    clean = urlunsplit((parts.scheme, parts.netloc, path, urlencode(query), ""))
+    connect_args = {"auth_token": token} if token else {}
+    return clean, connect_args
+
+
 def _build_engine(url: str) -> Engine:
     is_sqlite_family = url.startswith("sqlite")
     is_libsql = "+libsql" in url  # Turso (libSQL) — NOT pysqlite
 
-    connect_args = {}
-    # check_same_thread is a pysqlite-only arg; libSQL/Turso must not receive it.
-    if is_sqlite_family and not is_libsql:
+    connect_args: dict = {}
+    if is_libsql:
+        # Pass the auth token via connect_args; check_same_thread is pysqlite-only.
+        url, connect_args = _prepare_libsql(url)
+    elif is_sqlite_family:
         connect_args["check_same_thread"] = False
     engine = create_engine(url, connect_args=connect_args, future=True)
 
