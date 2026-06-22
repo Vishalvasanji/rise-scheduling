@@ -16,9 +16,21 @@ export function DashboardPage() {
   if (error) return <div className="error-banner">{error}</div>;
   if (!digest) return <p className="muted">Loading dashboard…</p>;
 
+  const totalUnits = digest.projects.reduce((s, p) => s + (p.units ?? 0), 0);
+  const totalCritical = digest.projects.reduce((s, p) => s + p.critical_count, 0);
+  const totalSlipped = digest.projects.reduce((s, p) => s + p.slipped_count, 0);
+
   return (
     <div>
       <h2>Leadership dashboard</h2>
+
+      <div className="stat-grid">
+        <Stat label="Active projects" value={digest.projects.length} />
+        <Stat label="Total units" value={totalUnits.toLocaleString()} />
+        <Stat label="Critical tasks" value={totalCritical} />
+        <Stat label="Slipped tasks" value={totalSlipped} tone={totalSlipped > 0 ? "warn" : undefined} />
+      </div>
+
       <table className="task-table">
         <thead>
           <tr>
@@ -51,6 +63,23 @@ export function DashboardPage() {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone?: "warn";
+}) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-value ${tone === "warn" ? "negative" : ""}`}>{value}</div>
+      <div className="stat-label">{label}</div>
     </div>
   );
 }

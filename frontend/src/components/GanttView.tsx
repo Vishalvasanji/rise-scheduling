@@ -12,10 +12,10 @@ import {
 import "gantt-task-react/dist/index.css";
 import type { DependencyOut, TaskOut } from "../types/schedule";
 
-const CRITICAL = "#d64545";
-const CRITICAL_SELECT = "#b83232";
-const NORMAL = "#4a78b5";
-const NORMAL_SELECT = "#355a8c";
+const CRITICAL = "#ff3b30";
+const CRITICAL_SELECT = "#e0301f";
+const NORMAL = "#0a84ff";
+const NORMAL_SELECT = "#0060df";
 
 interface Props {
   tasks: TaskOut[];
@@ -66,8 +66,8 @@ export function GanttView({
           styles: {
             backgroundColor: barColor,
             backgroundSelectedColor: barSelect,
-            progressColor: t.is_critical ? "#a82e2e" : "#2f5680",
-            progressSelectedColor: "#1f3c5c",
+            progressColor: t.is_critical ? "#c4271d" : "#0060df",
+            progressSelectedColor: "#003a99",
           },
         } as GanttTask;
       });
