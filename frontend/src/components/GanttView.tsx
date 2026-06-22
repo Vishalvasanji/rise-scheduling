@@ -24,10 +24,12 @@ interface Props {
   viewMode?: ViewMode;
 }
 
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
+// Parse a YYYY-MM-DD string as a LOCAL calendar date. `new Date("2026-06-22")`
+// is parsed as UTC midnight, which renders as the previous day in negative-UTC
+// timezones — an off-by-one on the Gantt. Building from parts avoids that.
+function parseLocalDate(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 export function GanttView({
@@ -47,11 +49,9 @@ export function GanttView({
     return tasks
       .filter((t) => t.planned_start && t.planned_finish)
       .map((t) => {
-        const start = new Date(t.planned_start!);
-        // planned_finish is the last working day (inclusive); render through it.
-        const end = t.is_milestone
-          ? start
-          : addDays(new Date(t.planned_finish!), 1);
+        const start = parseLocalDate(t.planned_start!);
+        // planned_finish is the last working day (inclusive); a milestone is a point.
+        const end = t.is_milestone ? start : parseLocalDate(t.planned_finish!);
         const barColor = t.is_critical ? CRITICAL : NORMAL;
         const barSelect = t.is_critical ? CRITICAL_SELECT : NORMAL_SELECT;
         return {

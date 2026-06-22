@@ -17,9 +17,12 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="RISE Schedule Hub API", version="0.1.0")
 
+    # FRONTEND_ORIGIN may be a comma-separated list (e.g. the Vercel prod URL plus
+    # localhost for dev), so the same backend serves local and hosted front ends.
+    allowed_origins = [o.strip() for o in settings.frontend_origin.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
