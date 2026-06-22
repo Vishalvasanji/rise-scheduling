@@ -7,13 +7,21 @@ recalculated, and audited identically to web writes.
 
 from __future__ import annotations
 
+import os
+import sys
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
 from app.mcp import tools
 
-mcp = FastMCP("rise-schedule-hub")
+# host/port matter only for HTTP transport (a remote connector on Render); for
+# stdio they're ignored. Render injects PORT; default 8001 locally.
+mcp = FastMCP(
+    "rise-schedule-hub",
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", "8001")),
+)
 
 
 @mcp.tool()
@@ -73,7 +81,11 @@ def generate_report(scope: str, report_type: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    mcp.run()
+    # Default to stdio (local Claude Desktop / Claude Code, launched as a
+    # subprocess). Use --http (or MCP_TRANSPORT=http) to serve Streamable HTTP at
+    # /mcp for a hosted remote connector (Render).
+    use_http = "--http" in sys.argv or os.environ.get("MCP_TRANSPORT") == "http"
+    mcp.run(transport="streamable-http" if use_http else "stdio")
 
 
 if __name__ == "__main__":
