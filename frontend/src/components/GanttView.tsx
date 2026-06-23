@@ -22,6 +22,10 @@ interface Props {
   dependencies: DependencyOut[];
   onDateChange: (taskId: number, start: Date) => void;
   viewMode?: ViewMode;
+  /** Pixel height for the chart's internal scroll viewport (0 = auto-grow). */
+  height?: number;
+  /** Show the left task-name list; when false the timeline takes the full width. */
+  showTaskList?: boolean;
 }
 
 // Parse a YYYY-MM-DD string as a LOCAL calendar date. `new Date("2026-06-22")`
@@ -37,6 +41,8 @@ export function GanttView({
   dependencies,
   onDateChange,
   viewMode = ViewMode.Month,
+  height = 0,
+  showTaskList = true,
 }: Props) {
   const ganttTasks = useMemo<GanttTask[]>(() => {
     const predecessorsOf = new Map<number, string[]>();
@@ -82,8 +88,13 @@ export function GanttView({
       tasks={ganttTasks}
       viewMode={viewMode}
       onDateChange={(task: GanttTask) => onDateChange(Number(task.id), task.start)}
-      listCellWidth="260px"
+      listCellWidth={showTaskList ? "240px" : ""}
       columnWidth={viewMode === ViewMode.Month ? 200 : 65}
+      ganttHeight={height > 0 ? Math.max(height - 58, 200) : undefined}
+      rowHeight={38}
+      headerHeight={42}
+      barCornerRadius={4}
+      fontSize="13px"
     />
   );
 }

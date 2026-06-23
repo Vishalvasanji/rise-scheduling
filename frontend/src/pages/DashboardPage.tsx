@@ -21,7 +21,7 @@ export function DashboardPage() {
   const totalSlipped = digest.projects.reduce((s, p) => s + p.slipped_count, 0);
 
   return (
-    <div>
+    <div className="page-scroll">
       <h2>Leadership dashboard</h2>
 
       <div className="stat-grid">

@@ -7,11 +7,20 @@ import "./styles.css";
 
 type Selection = number | "dashboard";
 
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 export default function App() {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
   const [selected, setSelected] = useState<Selection | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem("rise_sidebar_collapsed") === "true",
+  );
 
   const load = useCallback(() => {
     setStatus("loading");
@@ -30,6 +39,12 @@ export default function App() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const toggleCollapsed = () =>
+    setCollapsed((v) => {
+      localStorage.setItem("rise_sidebar_collapsed", String(!v));
+      return !v;
+    });
 
   if (status === "loading") {
     return (
@@ -62,17 +77,29 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
+      <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-head">
           <span className="brand-mark" />
           <span className="brand-name">RISE Schedule Hub</span>
+          <button
+            className="sidebar-toggle"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label="Toggle sidebar"
+          >
+            {collapsed ? "»" : "«"}
+          </button>
         </div>
         <nav className="nav">
           <button
             className={`nav-item ${selected === "dashboard" ? "is-active" : ""}`}
             onClick={() => setSelected("dashboard")}
+            title="Leadership dashboard"
           >
-            <span className="nav-item__name">Leadership dashboard</span>
+            <span className="nav-item__badge">▦</span>
+            <span className="nav-item__text">
+              <span className="nav-item__name">Leadership dashboard</span>
+            </span>
           </button>
           <div className="nav-section">Projects</div>
           {projects.map((p) => (
@@ -80,9 +107,13 @@ export default function App() {
               key={p.id}
               className={`nav-item ${selected === p.id ? "is-active" : ""}`}
               onClick={() => setSelected(p.id)}
+              title={p.name}
             >
-              <span className="nav-item__name">{p.name}</span>
-              <span className="nav-item__stage">{p.stage}</span>
+              <span className="nav-item__badge">{initials(p.name)}</span>
+              <span className="nav-item__text">
+                <span className="nav-item__name">{p.name}</span>
+                <span className="nav-item__stage">{p.stage}</span>
+              </span>
             </button>
           ))}
         </nav>
