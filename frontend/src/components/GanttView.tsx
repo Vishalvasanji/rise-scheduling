@@ -90,7 +90,7 @@ export function GanttView({
       onDateChange={(task: GanttTask) => onDateChange(Number(task.id), task.start)}
       listCellWidth={showTaskList ? "240px" : ""}
       columnWidth={viewMode === ViewMode.Month ? 200 : 65}
-      ganttHeight={height > 0 ? Math.max(height - 58, 200) : undefined}
+      ganttHeight={height > 0 ? Math.max(height - 72, 200) : undefined}
       rowHeight={38}
       headerHeight={42}
       barCornerRadius={4}
