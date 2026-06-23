@@ -24,22 +24,11 @@ export function ProjectPage({ projectId }: { projectId: number }) {
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule) return <p className="muted">No schedule.</p>;
 
-  const { project, tasks, dependencies } = schedule;
+  const { tasks, dependencies } = schedule;
   const criticalCount = tasks.filter((t) => t.is_critical).length;
 
   return (
     <div className="project-page">
-      <div className="page-head">
-        <div className="meta">
-          <span>{project.deal_type}</span>
-          <span>{project.units} units</span>
-          <span>{project.stage}</span>
-          <span>
-            {project.planned_start} → {project.planned_finish}
-          </span>
-        </div>
-      </div>
-
       {error && <div className="error-banner">{error}</div>}
 
       <div className="toolbar">
