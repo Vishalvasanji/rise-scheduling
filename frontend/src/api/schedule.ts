@@ -25,22 +25,3 @@ export const createDependency = (
   type: DependencyType = "FS",
   lag_days = 0,
 ) => api.post("/dependencies", { predecessor_id, successor_id, type, lag_days });
-
-export interface LeadershipDigest {
-  type: string;
-  projects: {
-    project_id: number;
-    name: string;
-    stage: string | null;
-    units: number | null;
-    planned_start: string | null;
-    planned_finish: string | null;
-    task_count: number;
-    critical_count: number;
-    percent_complete: number;
-    slipped_count: number;
-  }[];
-}
-
-export const getLeadershipDigest = () =>
-  api.get<LeadershipDigest>("/reports/leadership-digest");

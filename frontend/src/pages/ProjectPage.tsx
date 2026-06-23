@@ -30,7 +30,6 @@ export function ProjectPage({ projectId }: { projectId: number }) {
   return (
     <div className="project-page">
       <div className="page-head">
-        <h2>{project.name}</h2>
         <div className="meta">
           <span>{project.deal_type}</span>
           <span>{project.units} units</span>

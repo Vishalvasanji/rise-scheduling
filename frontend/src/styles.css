@@ -54,64 +54,21 @@ button {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
-.sidebar {
-  width: 270px;
-  height: 100vh;
-  flex-shrink: 0;
-  padding: 22px 14px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-right: 1px solid var(--separator);
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition: width 0.2s ease, padding 0.2s ease;
-}
-
-.sidebar.collapsed {
-  width: 64px;
-  padding: 22px 9px;
-}
-
-.sidebar-head {
+.topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 8px 18px;
-}
-
-.sidebar.collapsed .sidebar-head {
-  flex-direction: column;
   gap: 12px;
-  padding: 4px 0 16px;
-}
-
-.sidebar-toggle {
-  margin-left: auto;
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  font-size: 15px;
-  line-height: 1;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.sidebar.collapsed .sidebar-toggle {
-  margin-left: 0;
-}
-
-.sidebar-toggle:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text);
+  flex-shrink: 0;
+  padding: 10px 22px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--separator);
 }
 
 .brand-mark {
@@ -129,116 +86,50 @@ button {
   letter-spacing: -0.02em;
 }
 
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.project-picker {
+  margin-left: 6px;
+  padding-left: 16px;
+  border-left: 1px solid var(--separator);
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 8px 10px;
-  border-radius: 9px;
-  cursor: pointer;
-  color: var(--text);
-  transition: background 0.15s ease;
-}
-
-.nav-item:hover {
-  background: rgba(0, 0, 0, 0.035);
-}
-
-.nav-item.is-active {
-  background: var(--selection);
-}
-
-.nav-item__text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.nav-item__name {
-  font-size: 14px;
-  font-weight: 500;
+.project-select {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 1px solid var(--separator-strong);
+  border-radius: 10px;
+  padding: 7px 36px 7px 13px;
+  cursor: pointer;
+  max-width: 60vw;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5l4 4 4-4' stroke='%236e6e73' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.nav-item.is-active .nav-item__name {
-  font-weight: 600;
+.project-select:hover {
+  border-color: var(--text-3);
 }
 
-.nav-item__stage {
-  font-size: 12px;
-  color: var(--text-3);
-}
-
-/* Initial badge shown only in the collapsed rail. */
-.nav-item__badge {
-  display: none;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: rgba(0, 0, 0, 0.05);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.nav-section {
-  margin: 18px 10px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-3);
-}
-
-/* ---- Collapsed sidebar rail -------------------------------------------- */
-
-.sidebar.collapsed .brand-name,
-.sidebar.collapsed .nav-item__text,
-.sidebar.collapsed .nav-section {
-  display: none;
-}
-
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  padding: 5px;
-}
-
-.sidebar.collapsed .nav-item__badge {
-  display: flex;
-}
-
-.sidebar.collapsed .nav-item.is-active {
-  background: transparent;
-}
-
-.sidebar.collapsed .nav-item.is-active .nav-item__badge {
-  background: var(--blue);
-  color: #fff;
+.project-select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
 }
 
 .content {
   flex: 1;
   min-width: 0;
-  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 22px;
+  padding: 16px 22px;
   overflow: hidden;
 }
 
@@ -247,13 +138,6 @@ button {
   font-weight: 600;
   letter-spacing: -0.022em;
   margin: 0 0 18px;
-}
-
-/* A page that scrolls inside the fixed viewport (e.g. the dashboard). */
-.page-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
 }
 
 /* ---- Project (schedule) page: fills the viewport ------------------------ */

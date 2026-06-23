@@ -2,32 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { listProjects } from "./api/schedule";
 import type { ProjectOut } from "./types/schedule";
 import { ProjectPage } from "./pages/ProjectPage";
-import { DashboardPage } from "./pages/DashboardPage";
 import "./styles.css";
-
-type Selection = number | "dashboard";
-
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/);
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
 
 export default function App() {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
-  const [selected, setSelected] = useState<Selection | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<boolean>(
-    () => localStorage.getItem("rise_sidebar_collapsed") === "true",
-  );
 
   const load = useCallback(() => {
     setStatus("loading");
     listProjects()
       .then((ps) => {
         setProjects(ps);
-        setSelected((cur) => cur ?? (ps.length ? ps[0].id : "dashboard"));
+        setSelected((cur) => cur ?? (ps.length ? ps[0].id : null));
         setStatus("ready");
       })
       .catch((e) => {
@@ -39,12 +27,6 @@ export default function App() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const toggleCollapsed = () =>
-    setCollapsed((v) => {
-      localStorage.setItem("rise_sidebar_collapsed", String(!v));
-      return !v;
-    });
 
   if (status === "loading") {
     return (
@@ -77,50 +59,30 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
-        <div className="sidebar-head">
-          <span className="brand-mark" />
-          <span className="brand-name">RISE Schedule Hub</span>
-          <button
-            className="sidebar-toggle"
-            onClick={toggleCollapsed}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-label="Toggle sidebar"
+      <header className="topbar">
+        <span className="brand-mark" />
+        <span className="brand-name">RISE Schedule Hub</span>
+        <div className="project-picker">
+          <select
+            className="project-select"
+            value={selected ?? ""}
+            onChange={(e) => setSelected(Number(e.target.value))}
+            aria-label="Select project"
           >
-            {collapsed ? "»" : "«"}
-          </button>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <nav className="nav">
-          <button
-            className={`nav-item ${selected === "dashboard" ? "is-active" : ""}`}
-            onClick={() => setSelected("dashboard")}
-            title="Leadership dashboard"
-          >
-            <span className="nav-item__badge">▦</span>
-            <span className="nav-item__text">
-              <span className="nav-item__name">Leadership dashboard</span>
-            </span>
-          </button>
-          <div className="nav-section">Projects</div>
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              className={`nav-item ${selected === p.id ? "is-active" : ""}`}
-              onClick={() => setSelected(p.id)}
-              title={p.name}
-            >
-              <span className="nav-item__badge">{initials(p.name)}</span>
-              <span className="nav-item__text">
-                <span className="nav-item__name">{p.name}</span>
-                <span className="nav-item__stage">{p.stage}</span>
-              </span>
-            </button>
-          ))}
-        </nav>
-      </aside>
+      </header>
       <main className="content">
-        {selected === "dashboard" && <DashboardPage />}
-        {typeof selected === "number" && <ProjectPage projectId={selected} />}
+        {selected != null ? (
+          <ProjectPage key={selected} projectId={selected} />
+        ) : (
+          <p className="muted">No projects yet.</p>
+        )}
       </main>
     </div>
   );
