@@ -1,20 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 interface Size {
   width: number;
   height: number;
 }
 
-// Measures an element's content box and keeps it updated via ResizeObserver.
-// Used to give the Gantt a concrete pixel height so it scrolls internally
-// instead of growing the page.
+// Measures an element's content box via ResizeObserver. Uses a *callback ref*
+// (not a ref object) so the observer attaches the moment the node mounts —
+// important because the measured element is rendered conditionally (after the
+// schedule loads), so an on-mount effect would miss it and report height 0.
 export function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
+  const observerRef = useRef<ResizeObserver | null>(null);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useCallback((node: T | null) => {
+    observerRef.current?.disconnect();
+    if (!node) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
@@ -22,8 +23,8 @@ export function useElementSize<T extends HTMLElement>() {
         setSize({ width: Math.round(width), height: Math.round(height) });
       }
     });
-    observer.observe(el);
-    return () => observer.disconnect();
+    observer.observe(node);
+    observerRef.current = observer;
   }, []);
 
   return { ref, ...size };
