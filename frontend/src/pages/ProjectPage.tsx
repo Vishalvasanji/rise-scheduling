@@ -5,21 +5,14 @@ import { TaskTable } from "../components/TaskTable";
 import { useSchedule } from "../hooks/useSchedule";
 import { useElementSize } from "../hooks/useElementSize";
 
+const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
+
 export function ProjectPage({ projectId }: { projectId: number }) {
   const { schedule, loading, error, updateTask, rescheduleTask, removeTask } =
     useSchedule(projectId);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
   const [tab, setTab] = useState<"gantt" | "grid">("gantt");
-  const [showList, setShowList] = useState<boolean>(
-    () => localStorage.getItem("rise_show_task_list") !== "false",
-  );
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
-
-  const toggleList = () =>
-    setShowList((v) => {
-      localStorage.setItem("rise_show_task_list", String(!v));
-      return !v;
-    });
 
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule) return <p className="muted">No schedule.</p>;
@@ -43,15 +36,12 @@ export function ProjectPage({ projectId }: { projectId: number }) {
         {tab === "gantt" && (
           <div className="toolbar__right">
             <div className="legend">
-              <span className="legend-swatch critical" /> Critical ({criticalCount})
-              <span className="legend-swatch normal" /> Float
-              <span>◆ Milestone</span>
+              <span className="lg-critical">Critical ({criticalCount})</span>
+              <span className="lg-float">Float</span>
+              <span className="lg-ms">◆ Milestone</span>
             </div>
-            <button className="ghost-btn" onClick={toggleList}>
-              {showList ? "Hide list" : "Show list"}
-            </button>
             <div className="view-modes">
-              {([ViewMode.Week, ViewMode.Month] as ViewMode[]).map((m) => (
+              {VIEW_MODES.map((m) => (
                 <button key={m} className={view === m ? "active" : ""} onClick={() => setView(m)}>
                   {m}
                 </button>
@@ -69,7 +59,6 @@ export function ProjectPage({ projectId }: { projectId: number }) {
             onDateChange={rescheduleTask}
             viewMode={view}
             height={height}
-            showTaskList={showList}
           />
         ) : (
           <div className="table-scroll">

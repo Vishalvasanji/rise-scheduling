@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import type { TaskOut } from "../types/schedule";
+import { mmddyy } from "../lib/dates";
 
 interface Props {
   tasks: TaskOut[];
@@ -46,8 +47,8 @@ function Row({ task, onUpdate, onDelete }: { task: TaskOut } & Omit<Props, "task
         {task.name}
       </td>
       <td>{task.is_milestone ? "—" : task.duration_days}</td>
-      <td>{task.planned_start ?? "—"}</td>
-      <td>{task.planned_finish ?? "—"}</td>
+      <td>{task.planned_start ? mmddyy(task.planned_start) : "—"}</td>
+      <td>{task.planned_finish ? mmddyy(task.planned_finish) : "—"}</td>
       <td className={(task.total_float ?? 0) < 0 ? "negative" : ""}>
         {task.total_float ?? "—"}
       </td>
