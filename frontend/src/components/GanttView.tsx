@@ -30,9 +30,9 @@ const NORMAL_SELECT = "#0060df";
 
 // Task-list column widths (Task is adjustable; the rest are fixed).
 const WBS_W = 56;
-const FROM_W = 58;
-const TO_W = 58;
-const DAYS_W = 44;
+const FROM_W = 74;
+const TO_W = 74;
+const DAYS_W = 58;
 const NAME_MIN = 90;
 const NAME_MAX = 480;
 const NAME_DEFAULT = 170;
@@ -65,6 +65,9 @@ const cellBase: CSSProperties = {
   whiteSpace: "nowrap",
   textOverflow: "ellipsis",
 };
+
+// From/To/Days share cellBase but center their (short) values horizontally.
+const cellCenter: CSSProperties = { ...cellBase, justifyContent: "center" };
 
 const resizeHandle: CSSProperties = {
   position: "absolute",
@@ -105,9 +108,9 @@ const GanttListHeader: FC<{ headerHeight: number; fontFamily: string; fontSize: 
         Task
         <span style={resizeHandle} onMouseDown={meta?.onResizeStart} />
       </div>
-      <div style={{ ...cellBase, width: FROM_W }}>From</div>
-      <div style={{ ...cellBase, width: TO_W }}>To</div>
-      <div style={{ ...cellBase, width: DAYS_W }}>Days</div>
+      <div style={{ ...cellCenter, width: FROM_W }}>From</div>
+      <div style={{ ...cellCenter, width: TO_W }}>To</div>
+      <div style={{ ...cellCenter, width: DAYS_W }}>Days</div>
     </div>
   );
 };
@@ -144,9 +147,9 @@ const GanttListTable: FC<{
             <div style={{ ...cellBase, width: nameW }} title={t.name}>
               {t.name}
             </div>
-            <div style={{ ...cellBase, width: FROM_W, color: "#6e6e73" }}>{mmddyy(t.start)}</div>
-            <div style={{ ...cellBase, width: TO_W, color: "#6e6e73" }}>{mmddyy(t.end)}</div>
-            <div style={{ ...cellBase, width: DAYS_W, color: "#6e6e73" }}>{days || ""}</div>
+            <div style={{ ...cellCenter, width: FROM_W, color: "#6e6e73" }}>{mmddyy(t.start)}</div>
+            <div style={{ ...cellCenter, width: TO_W, color: "#6e6e73" }}>{mmddyy(t.end)}</div>
+            <div style={{ ...cellCenter, width: DAYS_W, color: "#6e6e73" }}>{days || ""}</div>
           </div>
         );
       })}
