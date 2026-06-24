@@ -178,8 +178,8 @@ button {
   overflow: auto;
 }
 
-/* Inside the schedule card the table drops its own card chrome. */
-.schedule-region .task-table {
+/* Inside the schedule card the grid drops its own card chrome. */
+.schedule-region .task-grid {
   box-shadow: none;
   border-radius: 0;
 }
@@ -350,72 +350,35 @@ button {
   color: var(--text-2);
 }
 
-/* ---- Tables ------------------------------------------------------------- */
+/* ---- Task grid (shares the lead-column block with the Gantt list) ------- */
 
-.task-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+.task-grid {
   background: var(--surface);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  font-size: 14px;
 }
 
-.task-table th,
-.task-table td {
-  padding: 6px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--separator);
-}
-
-.task-table th {
-  background: var(--surface-2);
-  font-weight: 590;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  color: var(--text-2);
+/* The header row sticks while the body scrolls inside .table-scroll. */
+.task-grid__header {
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
-.task-table tbody tr {
+.task-grid__row {
   transition: background 0.12s ease;
 }
 
-.task-table tbody tr:hover {
+.task-grid__row:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.task-table tbody tr:last-child td {
+.task-grid__row:last-child {
   border-bottom: none;
-}
-
-.critical-row td:nth-child(2) {
-  font-weight: 600;
-}
-
-.critical-row td:nth-child(2)::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--red);
-  margin-right: 8px;
-  vertical-align: 1px;
-}
-
-.negative {
-  color: var(--red);
-  font-weight: 600;
 }
 
 /* ---- Inputs ------------------------------------------------------------- */
 
-.task-table input,
-.task-table select {
+.task-grid input,
+.task-grid select {
   font-family: inherit;
   font-size: 13px;
   color: var(--text);
@@ -426,8 +389,8 @@ button {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.task-table input:focus,
-.task-table select:focus {
+.task-grid input:focus,
+.task-grid select:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);

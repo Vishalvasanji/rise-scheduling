@@ -8,34 +8,26 @@
 // and tooltip components through a React context, so those components keep a
 // stable identity (column-resize doesn't remount them mid-drag).
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
+import { createContext, useContext, useMemo } from "react";
+import type { FC, MouseEvent as ReactMouseEvent } from "react";
 import { Gantt, Task as GanttTask, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
 import type { DependencyOut, TaskOut } from "../types/schedule";
 import { mmddyy, parseLocalDate } from "../lib/dates";
+import {
+  LeadCells,
+  LeadHeader,
+  bodyRowStyle,
+  headerRowStyle,
+  leadWidth,
+  useSharedNameWidth,
+  NAME_DEFAULT,
+} from "./taskColumns";
 
 const CRITICAL = "#ff3b30";
 const CRITICAL_SELECT = "#e0301f";
 const NORMAL = "#0a84ff";
 const NORMAL_SELECT = "#0060df";
-
-// Task-list column widths (Task is adjustable; the rest are fixed).
-const WBS_W = 56;
-const FROM_W = 74;
-const TO_W = 74;
-const DAYS_W = 58;
-const NAME_MIN = 90;
-const NAME_MAX = 480;
-const NAME_DEFAULT = 170;
 
 interface Props {
   tasks: TaskOut[];
@@ -57,60 +49,21 @@ interface GanttMeta {
 
 const MetaContext = createContext<GanttMeta | null>(null);
 
-const cellBase: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  padding: "0 8px",
-  overflow: "hidden",
-  whiteSpace: "nowrap",
-  textOverflow: "ellipsis",
-};
-
-// From/To/Days share cellBase but center their (short) values horizontally.
-const cellCenter: CSSProperties = { ...cellBase, justifyContent: "center" };
-
-const resizeHandle: CSSProperties = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  height: "100%",
-  width: 9,
-  cursor: "col-resize",
-  borderRight: "1px solid rgba(0,0,0,0.12)",
-};
-
 // ---- Custom task list (header + body) -----------------------------------
+// The five lead columns come from the shared `taskColumns` module so the Gantt
+// list and the Task grid render them identically. The library injects these
+// components and forwards only its own props, so per-row data and the adjustable
+// name width arrive through MetaContext.
 
 const GanttListHeader: FC<{ headerHeight: number; fontFamily: string; fontSize: string }> = ({
   headerHeight,
   fontFamily,
-  fontSize,
 }) => {
   const meta = useContext(MetaContext);
   const nameW = meta?.nameWidth ?? NAME_DEFAULT;
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        height: headerHeight,
-        fontFamily,
-        fontSize,
-        fontWeight: 600,
-        color: "#6e6e73",
-        background: "#fbfbfd",
-        borderBottom: "1px solid rgba(0,0,0,0.08)",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ ...cellBase, width: WBS_W }}>WBS</div>
-      <div style={{ ...cellBase, width: nameW, position: "relative" }}>
-        Task
-        <span style={resizeHandle} onMouseDown={meta?.onResizeStart} />
-      </div>
-      <div style={{ ...cellCenter, width: FROM_W }}>From</div>
-      <div style={{ ...cellCenter, width: TO_W }}>To</div>
-      <div style={{ ...cellCenter, width: DAYS_W }}>Days</div>
+    <div style={{ ...headerRowStyle, height: headerHeight, fontFamily }}>
+      <LeadHeader nameWidth={nameW} onResizeStart={meta?.onResizeStart ?? (() => {})} />
     </div>
   );
 };
@@ -126,33 +79,23 @@ const GanttListTable: FC<{
   const nameW = meta?.nameWidth ?? NAME_DEFAULT;
   return (
     <div style={{ fontFamily, fontSize }}>
-      {tasks.map((t) => {
-        const days = meta?.days.get(t.id) ?? 0;
-        return (
-          <div
-            key={t.id}
-            onClick={() => setSelectedTask(t.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              height: rowHeight,
-              borderBottom: "1px solid rgba(0,0,0,0.05)",
-              boxSizing: "border-box",
-              cursor: "pointer",
-            }}
-          >
-            <div style={{ ...cellBase, width: WBS_W, color: "#86868b" }}>
-              {meta?.wbs.get(t.id) ?? ""}
-            </div>
-            <div style={{ ...cellBase, width: nameW }} title={t.name}>
-              {t.name}
-            </div>
-            <div style={{ ...cellCenter, width: FROM_W, color: "#6e6e73" }}>{mmddyy(t.start)}</div>
-            <div style={{ ...cellCenter, width: TO_W, color: "#6e6e73" }}>{mmddyy(t.end)}</div>
-            <div style={{ ...cellCenter, width: DAYS_W, color: "#6e6e73" }}>{days || ""}</div>
-          </div>
-        );
-      })}
+      {tasks.map((t) => (
+        <div
+          key={t.id}
+          onClick={() => setSelectedTask(t.id)}
+          style={{ ...bodyRowStyle, height: rowHeight, cursor: "pointer" }}
+        >
+          <LeadCells
+            nameWidth={nameW}
+            wbs={meta?.wbs.get(t.id) ?? ""}
+            name={t.name}
+            from={t.start}
+            to={t.end}
+            days={meta?.days.get(t.id) ?? 0}
+            isMilestone={t.type === "milestone"}
+          />
+        </div>
+      ))}
     </div>
   );
 };
@@ -212,45 +155,7 @@ export function GanttView({
   viewMode = ViewMode.Month,
   height = 0,
 }: Props) {
-  const [nameWidth, setNameWidth] = useState<number>(() => {
-    const v = Number(localStorage.getItem("rise_gantt_name_w"));
-    return v >= NAME_MIN && v <= NAME_MAX ? v : NAME_DEFAULT;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("rise_gantt_name_w", String(nameWidth));
-  }, [nameWidth]);
-
-  // Column-resize drag (window-level so it keeps tracking off the handle).
-  const dragRef = useRef<{ startX: number; startW: number } | null>(null);
-  const onResizeStart = useCallback(
-    (e: ReactMouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragRef.current = { startX: e.clientX, startW: nameWidth };
-      document.body.style.userSelect = "none";
-    },
-    [nameWidth],
-  );
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dw = e.clientX - dragRef.current.startX;
-      setNameWidth(Math.min(NAME_MAX, Math.max(NAME_MIN, dragRef.current.startW + dw)));
-    };
-    const onUp = () => {
-      if (dragRef.current) {
-        dragRef.current = null;
-        document.body.style.userSelect = "";
-      }
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []);
+  const { nameWidth, onResizeStart } = useSharedNameWidth();
 
   const ganttTasks = useMemo<GanttTask[]>(() => {
     const predecessorsOf = new Map<number, string[]>();
@@ -316,7 +221,7 @@ export function GanttView({
     return <p className="muted">No scheduled tasks yet.</p>;
   }
 
-  const listWidth = WBS_W + nameWidth + FROM_W + TO_W + DAYS_W;
+  const listWidth = leadWidth(nameWidth);
   const columnWidth =
     viewMode === ViewMode.Month ? 200 : viewMode === ViewMode.Week ? 65 : 30;
 
