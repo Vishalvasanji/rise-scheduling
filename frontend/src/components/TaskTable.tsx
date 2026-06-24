@@ -1,12 +1,14 @@
 // Read/edit task grid. The first five columns (WBS · Task · From · To · Days) are
 // the shared lead block rendered identically to the Gantt list; everything after
-// them is grid-only (Float · % · Status · Critical · delete). Editing duration is
-// not offered here — duration shows in the shared Days column; % / status PATCH the
-// task and the backend recalculates.
+// them is grid-only (Float · % · Status · Critical · delete). WBS roll-up group
+// rows (from ProjectPage) render as bold, collapsible, read-only summary rows;
+// leaf rows stay editable. Editing % / status PATCHes the task and the backend
+// recalculates.
 
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { TaskOut } from "../types/schedule";
+import type { GroupRow, Row, TaskRow } from "../lib/rollup";
 import {
   LeadCells,
   LeadHeader,
@@ -19,7 +21,9 @@ import {
 } from "./taskColumns";
 
 interface Props {
-  tasks: TaskOut[];
+  rows: Row[];
+  collapsed: Set<string>;
+  onToggle: (id: string) => void;
   onUpdate: (taskId: number, fields: Partial<TaskOut>) => void;
   onDelete: (taskId: number) => void;
 }
@@ -33,7 +37,7 @@ const DEL_W = 72;
 
 const trailingWidth = FLOAT_W + PCT_W + STATUS_W + CRIT_W + DEL_W;
 
-export function TaskTable({ tasks, onUpdate, onDelete }: Props) {
+export function TaskTable({ rows, collapsed, onToggle, onUpdate, onDelete }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
   const minWidth = leadWidth(nameWidth) + trailingWidth;
 
@@ -47,19 +51,72 @@ export function TaskTable({ tasks, onUpdate, onDelete }: Props) {
         <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
         <div style={{ ...cellBase, width: DEL_W }} />
       </div>
-      {tasks.map((t) => (
-        <Row key={t.id} task={t} nameWidth={nameWidth} onUpdate={onUpdate} onDelete={onDelete} />
-      ))}
+      {rows.map((r) =>
+        r.kind === "group" ? (
+          <GroupLine
+            key={r.id}
+            row={r}
+            nameWidth={nameWidth}
+            collapsed={collapsed.has(r.id)}
+            onToggle={() => onToggle(r.id)}
+          />
+        ) : (
+          <Line key={r.id} row={r} nameWidth={nameWidth} onUpdate={onUpdate} onDelete={onDelete} />
+        ),
+      )}
     </div>
   );
 }
 
-function Row({
-  task,
+function GroupLine({
+  row,
+  nameWidth,
+  collapsed,
+  onToggle,
+}: {
+  row: GroupRow;
+  nameWidth: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="task-grid__row task-grid__group" style={bodyRowStyle}>
+      <LeadCells
+        nameWidth={nameWidth}
+        wbs={row.code}
+        name={row.name}
+        from={row.start}
+        to={row.finish}
+        days={row.days}
+        isMilestone={false}
+        depth={row.depth}
+        isGroup
+        collapsed={collapsed}
+        onToggle={onToggle}
+      />
+      <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
+      <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
+      <div style={{ ...cellBase, width: STATUS_W }} />
+      <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
+        {row.isCritical ? "●" : ""}
+      </div>
+      <div style={{ ...cellBase, width: DEL_W }} />
+    </div>
+  );
+}
+
+function Line({
+  row,
   nameWidth,
   onUpdate,
   onDelete,
-}: { task: TaskOut; nameWidth: number } & Omit<Props, "tasks">) {
+}: {
+  row: TaskRow;
+  nameWidth: number;
+  onUpdate: Props["onUpdate"];
+  onDelete: Props["onDelete"];
+}) {
+  const task = row.task;
   const [pct, setPct] = useState(task.percent_complete);
   const float = task.total_float ?? null;
   const floatStyle: CSSProperties = {
@@ -73,12 +130,13 @@ function Row({
     <div className="task-grid__row" style={bodyRowStyle}>
       <LeadCells
         nameWidth={nameWidth}
-        wbs={task.wbs ?? ""}
+        wbs={row.code}
         name={task.name}
-        from={task.planned_start ?? null}
-        to={task.planned_finish ?? null}
+        from={task.planned_start}
+        to={task.planned_finish}
         days={task.duration_days}
         isMilestone={task.is_milestone}
+        depth={row.depth}
       />
       <div style={floatStyle}>{float ?? "—"}</div>
       <div style={{ ...cellCenter, width: PCT_W }}>

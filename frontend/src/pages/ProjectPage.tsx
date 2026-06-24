@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ViewMode } from "gantt-task-react";
 import { GanttView } from "../components/GanttView";
 import { TaskTable } from "../components/TaskTable";
 import { useSchedule } from "../hooks/useSchedule";
 import { useElementSize } from "../hooks/useElementSize";
+import { buildRows, visibleRows } from "../lib/rollup";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
 
@@ -17,13 +18,26 @@ export function ProjectPage({
   const { schedule, loading, error, updateTask, rescheduleTask, removeTask } =
     useSchedule(projectId);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
+
+  const toggle = useCallback((id: string) => {
+    setCollapsed((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const tasks = schedule?.tasks;
+  const rows = useMemo(() => (tasks ? buildRows(tasks) : []), [tasks]);
+  const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
 
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule) return <p className="muted">No schedule.</p>;
 
-  const { tasks, dependencies } = schedule;
-  const criticalCount = tasks.filter((t) => t.is_critical).length;
+  const { dependencies } = schedule;
+  const criticalCount = schedule.tasks.filter((t) => t.is_critical).length;
 
   return (
     <div className="project-page">
@@ -51,15 +65,24 @@ export function ProjectPage({
       <div className="schedule-region" ref={regionRef}>
         {tab === "gantt" ? (
           <GanttView
-            tasks={tasks}
+            rows={shown}
+            tasks={schedule.tasks}
             dependencies={dependencies}
+            collapsed={collapsed}
+            onToggle={toggle}
             onDateChange={rescheduleTask}
             viewMode={view}
             height={height}
           />
         ) : (
           <div className="table-scroll">
-            <TaskTable tasks={tasks} onUpdate={updateTask} onDelete={removeTask} />
+            <TaskTable
+              rows={shown}
+              collapsed={collapsed}
+              onToggle={toggle}
+              onUpdate={updateTask}
+              onDelete={removeTask}
+            />
           </div>
         )}
       </div>

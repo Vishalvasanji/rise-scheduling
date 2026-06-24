@@ -131,6 +131,20 @@ export const LeadHeader: FC<{
   </>
 );
 
+// A roll-up group row gets a clickable caret + bold name; both group and leaf rows
+// indent the Task cell by `depth` so the WBS hierarchy reads visually.
+const caretStyle: CSSProperties = {
+  display: "inline-flex",
+  width: 14,
+  marginLeft: -2,
+  marginRight: 2,
+  color: "var(--text-3)",
+  cursor: "pointer",
+  fontSize: 10,
+  userSelect: "none",
+  flexShrink: 0,
+};
+
 export const LeadCells: FC<{
   nameWidth: number;
   wbs: string;
@@ -139,11 +153,35 @@ export const LeadCells: FC<{
   to: string | Date | null;
   days: number;
   isMilestone: boolean;
-}> = ({ nameWidth, wbs, name, from, to, days, isMilestone }) => (
+  depth?: number;
+  isGroup?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}> = ({ nameWidth, wbs, name, from, to, days, isMilestone, depth = 0, isGroup, collapsed, onToggle }) => (
   <>
     <div style={{ ...cellBase, width: WBS_W, color: "var(--text-3)" }}>{wbs}</div>
-    <div style={{ ...cellBase, width: nameWidth }} title={name}>
-      {isMilestone ? "◆ " : ""}
+    <div
+      style={{
+        ...cellBase,
+        width: nameWidth,
+        paddingLeft: 8 + depth * 14,
+        fontWeight: isGroup ? 600 : undefined,
+      }}
+      title={name}
+    >
+      {isGroup ? (
+        <span
+          style={caretStyle}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle?.();
+          }}
+        >
+          {collapsed ? "▶" : "▼"}
+        </span>
+      ) : null}
+      {!isGroup && isMilestone ? "◆ " : ""}
       {name}
     </div>
     <div style={{ ...cellCenter, width: FROM_W, color: "var(--text-2)" }}>
@@ -153,7 +191,7 @@ export const LeadCells: FC<{
       {to ? mmddyy(to) : "—"}
     </div>
     <div style={{ ...cellCenter, width: DAYS_W, color: "var(--text-2)" }}>
-      {isMilestone || !days ? "—" : days}
+      {!isGroup && (isMilestone || !days) ? "—" : days || "—"}
     </div>
   </>
 );

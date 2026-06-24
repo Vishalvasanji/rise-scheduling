@@ -16,3 +16,20 @@ export function mmddyy(value: string | Date): string {
   const yy = String(d.getFullYear()).slice(-2);
   return `${mm}/${dd}/${yy}`;
 }
+
+// Inclusive working-day count (Mon–Fri) between two dates, matching the backend
+// calendar (Mon–Fri, no holidays in the pilot). Used for summary-row durations.
+export function businessDays(start: string | Date, finish: string | Date): number {
+  const a = typeof start === "string" ? parseLocalDate(start) : new Date(start);
+  const b = typeof finish === "string" ? parseLocalDate(finish) : new Date(finish);
+  if (b < a) return 0;
+  let count = 0;
+  const cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
