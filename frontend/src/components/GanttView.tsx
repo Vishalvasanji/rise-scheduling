@@ -237,6 +237,7 @@ export function GanttView({
         rowHeight={38}
         headerHeight={42}
         barCornerRadius={4}
+        fontFamily="var(--font)"
         fontSize="13px"
         TaskListHeader={GanttListHeader}
         TaskListTable={GanttListTable}

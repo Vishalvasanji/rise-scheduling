@@ -564,3 +564,10 @@ button {
 .schedule-region text._2q1Kt {
   fill: var(--text-2);
 }
+
+/* The library defaults its SVG text to Arial; force the app font so the chart's
+   calendar + bar labels match the DOM list/grid. (A CSS rule beats the library's
+   font-family presentation attribute on the <text> elements.) */
+.schedule-region svg text {
+  font-family: var(--font);
+}
