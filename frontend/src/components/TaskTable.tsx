@@ -26,7 +26,7 @@ interface Props {
 
 // Trailing (grid-only) column widths.
 const FLOAT_W = 64;
-const PCT_W = 72;
+const PCT_W = 80;
 const STATUS_W = 132;
 const CRIT_W = 64;
 const DEL_W = 72;
@@ -91,7 +91,7 @@ function Row({
           onBlur={() => {
             if (pct !== task.percent_complete) onUpdate(task.id, { percent_complete: pct });
           }}
-          style={{ width: 52 }}
+          style={{ width: 60 }}
         />
       </div>
       <div style={{ ...cellBase, width: STATUS_W }}>

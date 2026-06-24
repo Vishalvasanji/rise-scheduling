@@ -532,3 +532,35 @@ button {
   background: rgba(0, 0, 0, 0.3);
   background-clip: padding-box;
 }
+
+/* ---- gantt-task-react chart → app design system ------------------------- */
+/* The library hard-codes its SVG colors (header, row stripes, gridlines) which
+   clash with the shared lead block sitting next to it. Pull them onto our tokens
+   so the Gantt chart, the Gantt list, and the Task grid read as one system.
+   Selectors are scoped under .schedule-region and use element+class so they beat
+   the library's single-class rules regardless of CSS import order. The hashed
+   class names track gantt-task-react@0.3.9 (pinned + patched). */
+
+/* Calendar header: match the lead header tint + separator (no seam). */
+.schedule-region rect._35nLX {
+  fill: var(--surface-2);
+  stroke: var(--separator);
+}
+
+/* Remove the even-row zebra so chart rows are flat white like the list/grid. */
+.schedule-region rect._2dZTy:nth-child(even) {
+  fill: var(--surface);
+}
+
+/* One separator color for every chart line (row lines + column/calendar ticks). */
+.schedule-region line._3rUKi,
+.schedule-region line._RuwuK,
+.schedule-region line._1rLuZ {
+  stroke: var(--separator);
+}
+
+/* Calendar date labels match the lead-header text color. */
+.schedule-region text._9w8d5,
+.schedule-region text._2q1Kt {
+  fill: var(--text-2);
+}
