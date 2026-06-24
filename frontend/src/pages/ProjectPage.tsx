@@ -7,11 +7,16 @@ import { useElementSize } from "../hooks/useElementSize";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
 
-export function ProjectPage({ projectId }: { projectId: number }) {
+export function ProjectPage({
+  projectId,
+  tab,
+}: {
+  projectId: number;
+  tab: "gantt" | "grid";
+}) {
   const { schedule, loading, error, updateTask, rescheduleTask, removeTask } =
     useSchedule(projectId);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
-  const [tab, setTab] = useState<"gantt" | "grid">("gantt");
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
 
   if (loading && !schedule) return <p className="muted">Loading…</p>;
@@ -24,16 +29,8 @@ export function ProjectPage({ projectId }: { projectId: number }) {
     <div className="project-page">
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="toolbar">
-        <div className="tabs">
-          <button className={tab === "gantt" ? "active" : ""} onClick={() => setTab("gantt")}>
-            Gantt
-          </button>
-          <button className={tab === "grid" ? "active" : ""} onClick={() => setTab("grid")}>
-            Task grid
-          </button>
-        </div>
-        {tab === "gantt" && (
+      {tab === "gantt" && (
+        <div className="toolbar">
           <div className="toolbar__right">
             <div className="legend">
               <span className="lg-critical">Critical ({criticalCount})</span>
@@ -48,8 +45,8 @@ export function ProjectPage({ projectId }: { projectId: number }) {
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="schedule-region" ref={regionRef}>
         {tab === "gantt" ? (

@@ -242,10 +242,46 @@ button {
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
+}
+
+/* View switcher in the top bar (Schedule / Tasks), as clickable menu items. */
+.top-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  padding-left: 16px;
+  border-left: 1px solid var(--separator);
+}
+
+.top-nav__item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.top-nav__item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+.top-nav__item.active {
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--blue);
+  font-weight: 600;
 }
 
 .toolbar__right {
@@ -275,7 +311,6 @@ button {
   background: rgba(0, 0, 0, 0.09);
 }
 
-.tabs,
 .view-modes {
   display: inline-flex;
   gap: 2px;
@@ -284,7 +319,6 @@ button {
   border-radius: 9px;
 }
 
-.tabs button,
 .view-modes button {
   appearance: none;
   border: none;
@@ -299,12 +333,10 @@ button {
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tabs button:hover,
 .view-modes button:hover {
   color: var(--text);
 }
 
-.tabs button.active,
 .view-modes button.active {
   background: var(--surface);
   color: var(--text);

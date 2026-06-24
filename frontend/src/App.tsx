@@ -7,6 +7,7 @@ import "./styles.css";
 export default function App() {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [tab, setTab] = useState<"gantt" | "grid">("gantt");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 
@@ -76,10 +77,28 @@ export default function App() {
             ))}
           </select>
         </div>
+        {selected != null && (
+          <nav className="top-nav">
+            <button
+              className={`top-nav__item${tab === "gantt" ? " active" : ""}`}
+              aria-current={tab === "gantt" ? "page" : undefined}
+              onClick={() => setTab("gantt")}
+            >
+              Schedule
+            </button>
+            <button
+              className={`top-nav__item${tab === "grid" ? " active" : ""}`}
+              aria-current={tab === "grid" ? "page" : undefined}
+              onClick={() => setTab("grid")}
+            >
+              Tasks
+            </button>
+          </nav>
+        )}
       </header>
       <main className="content">
         {selected != null ? (
-          <ProjectPage key={selected} projectId={selected} />
+          <ProjectPage key={selected} projectId={selected} tab={tab} />
         ) : (
           <p className="muted">No projects yet.</p>
         )}
