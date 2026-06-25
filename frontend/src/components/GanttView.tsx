@@ -213,7 +213,7 @@ export function GanttView({
           start: parseLocalDate(r.start),
           end: parseLocalDate(r.finish),
           progress: Math.round(r.percent),
-          displayOrder: i,
+          displayOrder: i + 1,
           isDisabled: true,
           hideChildren: collapsed.has(r.id),
           styles: {
@@ -236,7 +236,7 @@ export function GanttView({
           end,
           progress: Math.round(t.percent_complete),
           dependencies: predecessorsOf.get(String(t.id)),
-          displayOrder: i,
+          displayOrder: i + 1,
           isDisabled: false,
           styles: {
             backgroundColor: t.is_critical ? CRITICAL : NORMAL,
