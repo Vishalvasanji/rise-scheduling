@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { TaskOut } from "../types/schedule";
 import type { GroupRow, Row, TaskRow } from "../lib/rollup";
+import { businessDays } from "../lib/dates";
 import {
   CellInput,
   LeadCells,
@@ -129,6 +130,11 @@ function Line({
   onDelete: Props["onDelete"];
 }) {
   const task = row.task;
+  // Days is a calc of the selected dates (inclusive business-day span), not editable.
+  const days =
+    !task.is_milestone && task.planned_start && task.planned_finish
+      ? businessDays(task.planned_start, task.planned_finish)
+      : 0;
   const float = task.total_float ?? null;
   const floatStyle: CSSProperties = {
     ...cellCenter,
@@ -145,15 +151,11 @@ function Line({
         name={task.name}
         from={task.planned_start}
         to={task.planned_finish}
-        days={task.duration_days}
+        days={days}
         isMilestone={task.is_milestone}
         depth={row.depth}
         onCommitName={(v) => {
           if (v) onUpdate(task.id, { name: v });
-        }}
-        onCommitDays={(v) => {
-          const n = Number(v);
-          if (Number.isFinite(n) && n >= 0) onUpdate(task.id, { duration_days: Math.round(n) });
         }}
         onCommitFrom={(v) => onUpdate(task.id, { actual_start: v || null })}
         onCommitTo={(v) => onUpdate(task.id, { actual_finish: v || null })}
