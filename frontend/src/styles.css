@@ -242,10 +242,42 @@ button {
 
 .toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
+}
+
+/* Expand all / Collapse all for WBS roll-up groups. */
+.rollup-controls {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.rollup-controls button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rollup-controls button:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+.rollup-controls button:disabled {
+  color: var(--text-3);
+  cursor: default;
+  background: transparent;
+  opacity: 0.5;
 }
 
 /* View switcher in the top bar (Schedule / Tasks), as clickable menu items. */
