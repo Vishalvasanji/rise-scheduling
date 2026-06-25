@@ -41,6 +41,9 @@ const DEL_W = 72;
 
 const trailingWidth = TRADE_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
 
+// "Trade" header / cell, placed right after Task via the LeadCells afterName slot.
+const tradeHeader = <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>;
+
 export function TaskTable({ rows, trades, collapsed, onToggle, onUpdate, onDelete }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
   const minWidth = leadWidth(nameWidth) + trailingWidth;
@@ -48,8 +51,7 @@ export function TaskTable({ rows, trades, collapsed, onToggle, onUpdate, onDelet
   return (
     <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
       <div className="task-grid__header" style={headerRowStyle}>
-        <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} />
-        <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>
+        <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} afterName={tradeHeader} />
         <div style={{ ...cellCenter, width: FLOAT_W }}>Float</div>
         <div style={{ ...cellCenter, width: PCT_W }}>%</div>
         <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
@@ -104,8 +106,8 @@ function GroupLine({
         isGroup
         collapsed={collapsed}
         onToggle={onToggle}
+        afterName={<div style={{ ...cellBase, width: TRADE_W }} />}
       />
-      <div style={{ ...cellBase, width: TRADE_W }} />
       <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
       <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
@@ -159,14 +161,16 @@ function Line({
         }}
         onCommitFrom={(v) => onUpdate(task.id, { actual_start: v || null })}
         onCommitTo={(v) => onUpdate(task.id, { actual_finish: v || null })}
+        afterName={
+          <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>
+            <TradeCell
+              value={task.trade ?? ""}
+              trades={trades}
+              onCommit={(v) => onUpdate(task.id, { trade: v || null })}
+            />
+          </div>
+        }
       />
-      <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>
-        <TradeCell
-          value={task.trade ?? ""}
-          trades={trades}
-          onCommit={(v) => onUpdate(task.id, { trade: v || null })}
-        />
-      </div>
       <div style={floatStyle}>{float ?? "—"}</div>
       <div style={{ ...cellCenter, width: PCT_W, padding: 0, overflow: "visible" }}>
         <CellInput
