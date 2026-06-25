@@ -178,8 +178,8 @@ button {
   overflow: auto;
 }
 
-/* Inside the schedule card the table drops its own card chrome. */
-.schedule-region .task-table {
+/* Inside the schedule card the grid drops its own card chrome. */
+.schedule-region .task-grid {
   box-shadow: none;
   border-radius: 0;
 }
@@ -242,10 +242,46 @@ button {
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
+}
+
+/* View switcher in the top bar (Schedule / Tasks), as clickable menu items. */
+.top-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  padding-left: 16px;
+  border-left: 1px solid var(--separator);
+}
+
+.top-nav__item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.top-nav__item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+.top-nav__item.active {
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--blue);
+  font-weight: 600;
 }
 
 .toolbar__right {
@@ -275,7 +311,6 @@ button {
   background: rgba(0, 0, 0, 0.09);
 }
 
-.tabs,
 .view-modes {
   display: inline-flex;
   gap: 2px;
@@ -284,7 +319,6 @@ button {
   border-radius: 9px;
 }
 
-.tabs button,
 .view-modes button {
   appearance: none;
   border: none;
@@ -299,12 +333,10 @@ button {
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tabs button:hover,
 .view-modes button:hover {
   color: var(--text);
 }
 
-.tabs button.active,
 .view-modes button.active {
   background: var(--surface);
   color: var(--text);
@@ -350,72 +382,35 @@ button {
   color: var(--text-2);
 }
 
-/* ---- Tables ------------------------------------------------------------- */
+/* ---- Task grid (shares the lead-column block with the Gantt list) ------- */
 
-.task-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+.task-grid {
   background: var(--surface);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  font-size: 14px;
 }
 
-.task-table th,
-.task-table td {
-  padding: 6px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--separator);
-}
-
-.task-table th {
-  background: var(--surface-2);
-  font-weight: 590;
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  color: var(--text-2);
+/* The header row sticks while the body scrolls inside .table-scroll. */
+.task-grid__header {
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
-.task-table tbody tr {
+.task-grid__row {
   transition: background 0.12s ease;
 }
 
-.task-table tbody tr:hover {
+.task-grid__row:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.task-table tbody tr:last-child td {
+.task-grid__row:last-child {
   border-bottom: none;
-}
-
-.critical-row td:nth-child(2) {
-  font-weight: 600;
-}
-
-.critical-row td:nth-child(2)::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--red);
-  margin-right: 8px;
-  vertical-align: 1px;
-}
-
-.negative {
-  color: var(--red);
-  font-weight: 600;
 }
 
 /* ---- Inputs ------------------------------------------------------------- */
 
-.task-table input,
-.task-table select {
+.task-grid input,
+.task-grid select {
   font-family: inherit;
   font-size: 13px;
   color: var(--text);
@@ -426,8 +421,8 @@ button {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.task-table input:focus,
-.task-table select:focus {
+.task-grid input:focus,
+.task-grid select:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
@@ -568,4 +563,43 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
   background-clip: padding-box;
+}
+
+/* ---- gantt-task-react chart → app design system ------------------------- */
+/* The library hard-codes its SVG colors (header, row stripes, gridlines) which
+   clash with the shared lead block sitting next to it. Pull them onto our tokens
+   so the Gantt chart, the Gantt list, and the Task grid read as one system.
+   Selectors are scoped under .schedule-region and use element+class so they beat
+   the library's single-class rules regardless of CSS import order. The hashed
+   class names track gantt-task-react@0.3.9 (pinned + patched). */
+
+/* Calendar header: match the lead header tint + separator (no seam). */
+.schedule-region rect._35nLX {
+  fill: var(--surface-2);
+  stroke: var(--separator);
+}
+
+/* Remove the even-row zebra so chart rows are flat white like the list/grid. */
+.schedule-region rect._2dZTy:nth-child(even) {
+  fill: var(--surface);
+}
+
+/* One separator color for every chart line (row lines + column/calendar ticks). */
+.schedule-region line._3rUKi,
+.schedule-region line._RuwuK,
+.schedule-region line._1rLuZ {
+  stroke: var(--separator);
+}
+
+/* Calendar date labels match the lead-header text color. */
+.schedule-region text._9w8d5,
+.schedule-region text._2q1Kt {
+  fill: var(--text-2);
+}
+
+/* The library defaults its SVG text to Arial; force the app font so the chart's
+   calendar + bar labels match the DOM list/grid. (A CSS rule beats the library's
+   font-family presentation attribute on the <text> elements.) */
+.schedule-region svg text {
+  font-family: var(--font);
 }

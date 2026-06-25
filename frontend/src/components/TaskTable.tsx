@@ -1,58 +1,145 @@
-// Read/edit task grid. Editing duration or % complete or status PATCHes the
-// task; the backend recalculates and the parent refetches.
+// Read/edit task grid. The first five columns (WBS · Task · From · To · Days) are
+// the shared lead block rendered identically to the Gantt list; everything after
+// them is grid-only (Float · % · Status · Critical · delete). WBS roll-up group
+// rows (from ProjectPage) render as bold, collapsible, read-only summary rows;
+// leaf rows stay editable. Editing % / status PATCHes the task and the backend
+// recalculates.
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import type { TaskOut } from "../types/schedule";
-import { mmddyy } from "../lib/dates";
+import type { GroupRow, Row, TaskRow } from "../lib/rollup";
+import {
+  LeadCells,
+  LeadHeader,
+  bodyRowStyle,
+  cellBase,
+  cellCenter,
+  headerRowStyle,
+  leadWidth,
+  useSharedNameWidth,
+} from "./taskColumns";
 
 interface Props {
-  tasks: TaskOut[];
+  rows: Row[];
+  collapsed: Set<string>;
+  onToggle: (id: string) => void;
   onUpdate: (taskId: number, fields: Partial<TaskOut>) => void;
   onDelete: (taskId: number) => void;
 }
 
-export function TaskTable({ tasks, onUpdate, onDelete }: Props) {
+// Trailing (grid-only) column widths.
+const FLOAT_W = 64;
+const PCT_W = 80;
+const STATUS_W = 132;
+const CRIT_W = 64;
+const DEL_W = 72;
+
+const trailingWidth = FLOAT_W + PCT_W + STATUS_W + CRIT_W + DEL_W;
+
+export function TaskTable({ rows, collapsed, onToggle, onUpdate, onDelete }: Props) {
+  const { nameWidth, onResizeStart } = useSharedNameWidth();
+  const minWidth = leadWidth(nameWidth) + trailingWidth;
+
   return (
-    <table className="task-table">
-      <thead>
-        <tr>
-          <th>WBS</th>
-          <th>Task</th>
-          <th>Dur</th>
-          <th>Start</th>
-          <th>Finish</th>
-          <th>Float</th>
-          <th>%</th>
-          <th>Status</th>
-          <th>Critical</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {tasks.map((t) => (
-          <Row key={t.id} task={t} onUpdate={onUpdate} onDelete={onDelete} />
-        ))}
-      </tbody>
-    </table>
+    <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
+      <div className="task-grid__header" style={headerRowStyle}>
+        <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} />
+        <div style={{ ...cellCenter, width: FLOAT_W }}>Float</div>
+        <div style={{ ...cellCenter, width: PCT_W }}>%</div>
+        <div style={{ ...cellBase, width: STATUS_W }}>Status</div>
+        <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
+        <div style={{ ...cellBase, width: DEL_W }} />
+      </div>
+      {rows.map((r) =>
+        r.kind === "group" ? (
+          <GroupLine
+            key={r.id}
+            row={r}
+            nameWidth={nameWidth}
+            collapsed={collapsed.has(r.id)}
+            onToggle={() => onToggle(r.id)}
+          />
+        ) : (
+          <Line key={r.id} row={r} nameWidth={nameWidth} onUpdate={onUpdate} onDelete={onDelete} />
+        ),
+      )}
+    </div>
   );
 }
 
-function Row({ task, onUpdate, onDelete }: { task: TaskOut } & Omit<Props, "tasks">) {
-  const [pct, setPct] = useState(task.percent_complete);
+function GroupLine({
+  row,
+  nameWidth,
+  collapsed,
+  onToggle,
+}: {
+  row: GroupRow;
+  nameWidth: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <tr className={task.is_critical ? "critical-row" : ""}>
-      <td className="muted">{task.wbs}</td>
-      <td>
-        {task.is_milestone ? "◆ " : ""}
-        {task.name}
-      </td>
-      <td>{task.is_milestone ? "—" : task.duration_days}</td>
-      <td>{task.planned_start ? mmddyy(task.planned_start) : "—"}</td>
-      <td>{task.planned_finish ? mmddyy(task.planned_finish) : "—"}</td>
-      <td className={(task.total_float ?? 0) < 0 ? "negative" : ""}>
-        {task.total_float ?? "—"}
-      </td>
-      <td>
+    <div className="task-grid__row task-grid__group" style={bodyRowStyle}>
+      <LeadCells
+        nameWidth={nameWidth}
+        wbs={row.code}
+        name={row.name}
+        from={row.start}
+        to={row.finish}
+        days={row.days}
+        isMilestone={false}
+        depth={row.depth}
+        isGroup
+        collapsed={collapsed}
+        onToggle={onToggle}
+      />
+      <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
+      <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
+      <div style={{ ...cellBase, width: STATUS_W }} />
+      <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
+        {row.isCritical ? "●" : ""}
+      </div>
+      <div style={{ ...cellBase, width: DEL_W }} />
+    </div>
+  );
+}
+
+function Line({
+  row,
+  nameWidth,
+  onUpdate,
+  onDelete,
+}: {
+  row: TaskRow;
+  nameWidth: number;
+  onUpdate: Props["onUpdate"];
+  onDelete: Props["onDelete"];
+}) {
+  const task = row.task;
+  const [pct, setPct] = useState(task.percent_complete);
+  const float = task.total_float ?? null;
+  const floatStyle: CSSProperties = {
+    ...cellCenter,
+    width: FLOAT_W,
+    color: float !== null && float < 0 ? "var(--red)" : "var(--text-2)",
+    fontWeight: float !== null && float < 0 ? 600 : 400,
+  };
+
+  return (
+    <div className="task-grid__row" style={bodyRowStyle}>
+      <LeadCells
+        nameWidth={nameWidth}
+        wbs={row.code}
+        name={task.name}
+        from={task.planned_start}
+        to={task.planned_finish}
+        days={task.duration_days}
+        isMilestone={task.is_milestone}
+        depth={row.depth}
+      />
+      <div style={floatStyle}>{float ?? "—"}</div>
+      <div style={{ ...cellCenter, width: PCT_W }}>
         <input
           type="number"
           min={0}
@@ -60,31 +147,30 @@ function Row({ task, onUpdate, onDelete }: { task: TaskOut } & Omit<Props, "task
           value={pct}
           onChange={(e) => setPct(Number(e.target.value))}
           onBlur={() => {
-            if (pct !== task.percent_complete)
-              onUpdate(task.id, { percent_complete: pct });
+            if (pct !== task.percent_complete) onUpdate(task.id, { percent_complete: pct });
           }}
-          style={{ width: 52 }}
+          style={{ width: 60 }}
         />
-      </td>
-      <td>
+      </div>
+      <div style={{ ...cellBase, width: STATUS_W }}>
         <select
           value={task.status}
-          onChange={(e) =>
-            onUpdate(task.id, { status: e.target.value as TaskOut["status"] })
-          }
+          onChange={(e) => onUpdate(task.id, { status: e.target.value as TaskOut["status"] })}
         >
           <option value="not_started">not started</option>
           <option value="in_progress">in progress</option>
           <option value="complete">complete</option>
           <option value="blocked">blocked</option>
         </select>
-      </td>
-      <td>{task.is_critical ? "●" : ""}</td>
-      <td>
+      </div>
+      <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
+        {task.is_critical ? "●" : ""}
+      </div>
+      <div style={{ ...cellBase, width: DEL_W }}>
         <button className="link-danger" onClick={() => onDelete(task.id)}>
           delete
         </button>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
