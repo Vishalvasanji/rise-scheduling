@@ -1,15 +1,15 @@
 // Read/edit task grid. The first five columns (WBS · Task · From · To · Days) are
 // the shared lead block rendered identically to the Gantt list; everything after
-// them is grid-only (Float · % · Status · Critical · delete). WBS roll-up group
-// rows (from ProjectPage) render as bold, collapsible, read-only summary rows;
-// leaf rows stay editable. Editing % / status PATCHes the task and the backend
-// recalculates.
+// them is grid-only (Trade · Float · % · Critical · delete). Every editable field
+// (name, Days, Trade, %) edits inline on click via CellInput — no dropdowns. WBS,
+// the planned dates, Float and Critical are engine-computed and read-only. WBS
+// roll-up group rows are bold, collapsible, and read-only.
 
-import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { TaskOut } from "../types/schedule";
 import type { GroupRow, Row, TaskRow } from "../lib/rollup";
 import {
+  CellInput,
   LeadCells,
   LeadHeader,
   bodyRowStyle,
@@ -29,13 +29,13 @@ interface Props {
 }
 
 // Trailing (grid-only) column widths.
+const TRADE_W = 130;
 const FLOAT_W = 64;
-const PCT_W = 80;
-const STATUS_W = 132;
+const PCT_W = 64;
 const CRIT_W = 64;
 const DEL_W = 72;
 
-const trailingWidth = FLOAT_W + PCT_W + STATUS_W + CRIT_W + DEL_W;
+const trailingWidth = TRADE_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
 
 export function TaskTable({ rows, collapsed, onToggle, onUpdate, onDelete }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
@@ -45,9 +45,9 @@ export function TaskTable({ rows, collapsed, onToggle, onUpdate, onDelete }: Pro
     <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
       <div className="task-grid__header" style={headerRowStyle}>
         <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} />
+        <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>
         <div style={{ ...cellCenter, width: FLOAT_W }}>Float</div>
         <div style={{ ...cellCenter, width: PCT_W }}>%</div>
-        <div style={{ ...cellBase, width: STATUS_W }}>Status</div>
         <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
         <div style={{ ...cellBase, width: DEL_W }} />
       </div>
@@ -94,9 +94,9 @@ function GroupLine({
         collapsed={collapsed}
         onToggle={onToggle}
       />
+      <div style={{ ...cellBase, width: TRADE_W }} />
       <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
       <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
-      <div style={{ ...cellBase, width: STATUS_W }} />
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
         {row.isCritical ? "●" : ""}
       </div>
@@ -117,7 +117,6 @@ function Line({
   onDelete: Props["onDelete"];
 }) {
   const task = row.task;
-  const [pct, setPct] = useState(task.percent_complete);
   const float = task.total_float ?? null;
   const floatStyle: CSSProperties = {
     ...cellCenter,
@@ -137,31 +136,36 @@ function Line({
         days={task.duration_days}
         isMilestone={task.is_milestone}
         depth={row.depth}
+        onCommitName={(v) => {
+          if (v) onUpdate(task.id, { name: v });
+        }}
+        onCommitDays={(v) => {
+          const n = Number(v);
+          if (Number.isFinite(n) && n >= 0) onUpdate(task.id, { duration_days: Math.round(n) });
+        }}
       />
+      <div style={{ ...cellBase, width: TRADE_W, padding: 0 }}>
+        <CellInput
+          value={task.trade ?? ""}
+          placeholder="—"
+          ariaLabel="Trade"
+          onCommit={(v) => onUpdate(task.id, { trade: v || null })}
+        />
+      </div>
       <div style={floatStyle}>{float ?? "—"}</div>
-      <div style={{ ...cellCenter, width: PCT_W }}>
-        <input
+      <div style={{ ...cellCenter, width: PCT_W, padding: 0 }}>
+        <CellInput
+          value={String(task.percent_complete)}
           type="number"
           min={0}
           max={100}
-          value={pct}
-          onChange={(e) => setPct(Number(e.target.value))}
-          onBlur={() => {
-            if (pct !== task.percent_complete) onUpdate(task.id, { percent_complete: pct });
+          align="center"
+          ariaLabel="Percent complete"
+          onCommit={(v) => {
+            const n = Number(v);
+            if (Number.isFinite(n) && n >= 0 && n <= 100) onUpdate(task.id, { percent_complete: n });
           }}
-          style={{ width: 60 }}
         />
-      </div>
-      <div style={{ ...cellBase, width: STATUS_W }}>
-        <select
-          value={task.status}
-          onChange={(e) => onUpdate(task.id, { status: e.target.value as TaskOut["status"] })}
-        >
-          <option value="not_started">not started</option>
-          <option value="in_progress">in progress</option>
-          <option value="complete">complete</option>
-          <option value="blocked">blocked</option>
-        </select>
       </div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
         {task.is_critical ? "●" : ""}

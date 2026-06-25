@@ -439,25 +439,48 @@ button {
   border-bottom: none;
 }
 
-/* ---- Inputs ------------------------------------------------------------- */
-
-.task-grid input,
-.task-grid select {
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--separator-strong);
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+/* ---- Inline click-to-edit cells ---------------------------------------- */
+/* Looks like plain text until hover/focus, so any field "changes on click". */
+.cell-input {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-.task-grid input:focus,
-.task-grid select:focus {
+.cell-input::placeholder {
+  color: var(--text-3);
+}
+
+.cell-input:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cell-input:focus {
   outline: none;
+  cursor: text;
+  background: var(--surface);
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
+}
+
+/* No number spinners — % / Days read as plain text. */
+.cell-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.cell-input[type="number"]::-webkit-outer-spin-button,
+.cell-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .link-danger {

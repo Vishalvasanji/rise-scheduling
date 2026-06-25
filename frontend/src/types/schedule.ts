@@ -14,6 +14,7 @@ export interface TaskOut {
   project_id: number;
   name: string;
   wbs: string | null;
+  trade: string | null;
   duration_days: number;
   percent_complete: number;
   status: TaskStatus;

@@ -37,6 +37,8 @@ class Task(Base):
     )
     name: Mapped[str] = mapped_column(String, nullable=False)
     wbs: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Responsible trade (free text, e.g. "Electrical"). Nullable; client-editable.
+    trade: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Planning inputs.
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
