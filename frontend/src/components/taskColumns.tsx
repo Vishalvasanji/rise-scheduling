@@ -163,6 +163,41 @@ export const CellInput: FC<{
   );
 };
 
+// A native date picker that looks like the resting text until clicked. Clicking
+// opens the calendar (showPicker) and a selection commits immediately. `value` and
+// the committed string are ISO (YYYY-MM-DD); an empty selection commits "".
+export const DateInput: FC<{
+  value: string | null;
+  ariaLabel?: string;
+  onCommit: (value: string) => void;
+}> = ({ value, ariaLabel, onCommit }) => {
+  const iso = value ?? "";
+  const [draft, setDraft] = useState(iso);
+  useEffect(() => setDraft(iso), [iso]);
+  return (
+    <input
+      className="cell-input cell-input--date"
+      type="date"
+      value={draft}
+      aria-label={ariaLabel}
+      style={{ textAlign: "center" }}
+      onClick={(e) => {
+        e.stopPropagation();
+        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+        try {
+          el.showPicker?.();
+        } catch {
+          /* showPicker not available — the native control still works */
+        }
+      }}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        if (e.target.value !== iso) onCommit(e.target.value);
+      }}
+    />
+  );
+};
+
 // ---- The five shared columns --------------------------------------------------
 
 export const LeadHeader: FC<{
@@ -207,9 +242,11 @@ export const LeadCells: FC<{
   isGroup?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
-  // When provided (Task grid only), the name / Days cells edit inline on click.
+  // When provided (Task grid only), these cells edit inline on click.
   onCommitName?: (value: string) => void;
   onCommitDays?: (value: string) => void;
+  onCommitFrom?: (value: string) => void;
+  onCommitTo?: (value: string) => void;
 }> = ({
   nameWidth,
   wbs,
@@ -224,10 +261,16 @@ export const LeadCells: FC<{
   onToggle,
   onCommitName,
   onCommitDays,
+  onCommitFrom,
+  onCommitTo,
 }) => {
   const indent = 8 + depth * 14;
   const editName = !isGroup && !!onCommitName;
   const editDays = !isGroup && !isMilestone && !!onCommitDays;
+  const editFrom = !isGroup && !!onCommitFrom;
+  const editTo = !isGroup && !!onCommitTo;
+  const fromStr = typeof from === "string" ? from : null;
+  const toStr = typeof to === "string" ? to : null;
   return (
     <>
       <div style={{ ...cellBase, width: WBS_W, color: "var(--text-3)" }}>{wbs}</div>
@@ -237,6 +280,7 @@ export const LeadCells: FC<{
           width: nameWidth,
           padding: editName ? 0 : "0 8px",
           paddingLeft: editName ? undefined : indent,
+          overflow: editName ? "visible" : "hidden",
           fontWeight: isGroup ? 600 : undefined,
         }}
         title={name}
@@ -267,13 +311,49 @@ export const LeadCells: FC<{
           </>
         )}
       </div>
-      <div style={{ ...cellCenter, width: FROM_W, color: "var(--text-2)" }}>
-        {from ? mmddyy(from) : "—"}
+      <div
+        style={{
+          ...cellCenter,
+          width: FROM_W,
+          color: "var(--text-2)",
+          padding: editFrom ? 0 : undefined,
+          overflow: editFrom ? "visible" : "hidden",
+        }}
+      >
+        {editFrom ? (
+          <DateInput value={fromStr} ariaLabel="Start date" onCommit={onCommitFrom!} />
+        ) : from ? (
+          mmddyy(from)
+        ) : (
+          "—"
+        )}
       </div>
-      <div style={{ ...cellCenter, width: TO_W, color: "var(--text-2)" }}>
-        {to ? mmddyy(to) : "—"}
+      <div
+        style={{
+          ...cellCenter,
+          width: TO_W,
+          color: "var(--text-2)",
+          padding: editTo ? 0 : undefined,
+          overflow: editTo ? "visible" : "hidden",
+        }}
+      >
+        {editTo ? (
+          <DateInput value={toStr} ariaLabel="Finish date" onCommit={onCommitTo!} />
+        ) : to ? (
+          mmddyy(to)
+        ) : (
+          "—"
+        )}
       </div>
-      <div style={{ ...cellCenter, width: DAYS_W, color: "var(--text-2)", padding: editDays ? 0 : undefined }}>
+      <div
+        style={{
+          ...cellCenter,
+          width: DAYS_W,
+          color: "var(--text-2)",
+          padding: editDays ? 0 : undefined,
+          overflow: editDays ? "visible" : "hidden",
+        }}
+      >
         {editDays ? (
           <CellInput
             value={String(days)}
