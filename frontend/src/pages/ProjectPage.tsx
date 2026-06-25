@@ -36,6 +36,14 @@ export function ProjectPage({
     () => rows.filter((r) => r.kind === "group").map((r) => r.id),
     [rows],
   );
+  // Distinct trades already in use, for the Trade typeahead.
+  const trades = useMemo(
+    () =>
+      Array.from(
+        new Set((tasks ?? []).map((t) => t.trade?.trim()).filter((t): t is string => !!t)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [tasks],
+  );
   const allCollapsed = groupIds.length > 0 && groupIds.every((id) => collapsed.has(id));
   const expandAll = useCallback(() => setCollapsed(new Set()), []);
   const collapseAll = useCallback(() => setCollapsed(new Set(groupIds)), [groupIds]);
@@ -100,6 +108,7 @@ export function ProjectPage({
           <div className="table-scroll">
             <TaskTable
               rows={shown}
+              trades={trades}
               collapsed={collapsed}
               onToggle={toggle}
               onUpdate={updateTask}
