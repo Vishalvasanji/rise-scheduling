@@ -4,7 +4,7 @@
 // from the CSS custom properties so the two views stay on one design system.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, FC, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { mmddyy } from "../lib/dates";
 
 // Fixed widths (Task is the only adjustable one).
@@ -203,13 +203,16 @@ export const DateInput: FC<{
 export const LeadHeader: FC<{
   nameWidth: number;
   onResizeStart: (e: ReactMouseEvent) => void;
-}> = ({ nameWidth, onResizeStart }) => (
+  // Optional column(s) inserted right after Task (Task grid only, e.g. Trade).
+  afterName?: ReactNode;
+}> = ({ nameWidth, onResizeStart, afterName }) => (
   <>
     <div style={{ ...cellBase, width: WBS_W }}>WBS</div>
     <div style={{ ...cellBase, width: nameWidth, position: "relative" }}>
       Task
       <span style={resizeHandle} onMouseDown={onResizeStart} />
     </div>
+    {afterName}
     <div style={{ ...cellCenter, width: FROM_W }}>From</div>
     <div style={{ ...cellCenter, width: TO_W }}>To</div>
     <div style={{ ...cellCenter, width: DAYS_W }}>Days</div>
@@ -247,6 +250,8 @@ export const LeadCells: FC<{
   onCommitDays?: (value: string) => void;
   onCommitFrom?: (value: string) => void;
   onCommitTo?: (value: string) => void;
+  // Optional column(s) inserted right after Task (Task grid only, e.g. Trade).
+  afterName?: ReactNode;
 }> = ({
   nameWidth,
   wbs,
@@ -263,6 +268,7 @@ export const LeadCells: FC<{
   onCommitDays,
   onCommitFrom,
   onCommitTo,
+  afterName,
 }) => {
   const indent = 8 + depth * 14;
   const editName = !isGroup && !!onCommitName;
@@ -311,6 +317,7 @@ export const LeadCells: FC<{
           </>
         )}
       </div>
+      {afterName}
       <div
         style={{
           ...cellCenter,
