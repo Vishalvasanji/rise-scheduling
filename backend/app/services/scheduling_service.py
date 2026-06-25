@@ -30,6 +30,7 @@ from app.repositories import (
 WRITABLE_TASK_FIELDS = {
     "name",
     "wbs",
+    "trade",
     "duration_days",
     "percent_complete",
     "status",

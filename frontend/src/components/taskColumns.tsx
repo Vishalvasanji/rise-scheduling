@@ -113,6 +113,56 @@ export function useSharedNameWidth() {
   return { nameWidth, onResizeStart };
 }
 
+// ---- Inline click-to-edit cell ------------------------------------------------
+// A borderless input that looks like plain text until hovered/focused, so every
+// editable field "changes on click" with no dropdowns or persistent boxes. Commits
+// on blur / Enter; Escape cancels. Caller parses the string value.
+
+export const CellInput: FC<{
+  value: string;
+  type?: "text" | "number";
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  align?: "left" | "center";
+  ariaLabel?: string;
+  style?: CSSProperties;
+  onCommit: (value: string) => void;
+}> = ({ value, type = "text", placeholder, min, max, align = "left", ariaLabel, style, onCommit }) => {
+  const [draft, setDraft] = useState(value);
+  const cancel = useRef(false);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <input
+      className="cell-input"
+      type={type}
+      value={draft}
+      min={min}
+      max={max}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      style={{ textAlign: align, ...style }}
+      onChange={(e) => setDraft(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") {
+          cancel.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={() => {
+        if (cancel.current) {
+          cancel.current = false;
+          setDraft(value);
+          return;
+        }
+        if (draft.trim() !== value) onCommit(draft.trim());
+      }}
+    />
+  );
+};
+
 // ---- The five shared columns --------------------------------------------------
 
 export const LeadHeader: FC<{
@@ -157,41 +207,88 @@ export const LeadCells: FC<{
   isGroup?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
-}> = ({ nameWidth, wbs, name, from, to, days, isMilestone, depth = 0, isGroup, collapsed, onToggle }) => (
-  <>
-    <div style={{ ...cellBase, width: WBS_W, color: "var(--text-3)" }}>{wbs}</div>
-    <div
-      style={{
-        ...cellBase,
-        width: nameWidth,
-        paddingLeft: 8 + depth * 14,
-        fontWeight: isGroup ? 600 : undefined,
-      }}
-      title={name}
-    >
-      {isGroup ? (
-        <span
-          style={caretStyle}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle?.();
-          }}
-        >
-          {collapsed ? "▶" : "▼"}
-        </span>
-      ) : null}
-      {!isGroup && isMilestone ? "◆ " : ""}
-      {name}
-    </div>
-    <div style={{ ...cellCenter, width: FROM_W, color: "var(--text-2)" }}>
-      {from ? mmddyy(from) : "—"}
-    </div>
-    <div style={{ ...cellCenter, width: TO_W, color: "var(--text-2)" }}>
-      {to ? mmddyy(to) : "—"}
-    </div>
-    <div style={{ ...cellCenter, width: DAYS_W, color: "var(--text-2)" }}>
-      {!isGroup && (isMilestone || !days) ? "—" : days || "—"}
-    </div>
-  </>
-);
+  // When provided (Task grid only), the name / Days cells edit inline on click.
+  onCommitName?: (value: string) => void;
+  onCommitDays?: (value: string) => void;
+}> = ({
+  nameWidth,
+  wbs,
+  name,
+  from,
+  to,
+  days,
+  isMilestone,
+  depth = 0,
+  isGroup,
+  collapsed,
+  onToggle,
+  onCommitName,
+  onCommitDays,
+}) => {
+  const indent = 8 + depth * 14;
+  const editName = !isGroup && !!onCommitName;
+  const editDays = !isGroup && !isMilestone && !!onCommitDays;
+  return (
+    <>
+      <div style={{ ...cellBase, width: WBS_W, color: "var(--text-3)" }}>{wbs}</div>
+      <div
+        style={{
+          ...cellBase,
+          width: nameWidth,
+          padding: editName ? 0 : "0 8px",
+          paddingLeft: editName ? undefined : indent,
+          fontWeight: isGroup ? 600 : undefined,
+        }}
+        title={name}
+      >
+        {isGroup ? (
+          <span
+            style={caretStyle}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle?.();
+            }}
+          >
+            {collapsed ? "▶" : "▼"}
+          </span>
+        ) : null}
+        {editName ? (
+          <CellInput
+            value={name}
+            ariaLabel="Task name"
+            style={{ paddingLeft: indent }}
+            onCommit={onCommitName!}
+          />
+        ) : (
+          <>
+            {!isGroup && isMilestone ? "◆ " : ""}
+            {name}
+          </>
+        )}
+      </div>
+      <div style={{ ...cellCenter, width: FROM_W, color: "var(--text-2)" }}>
+        {from ? mmddyy(from) : "—"}
+      </div>
+      <div style={{ ...cellCenter, width: TO_W, color: "var(--text-2)" }}>
+        {to ? mmddyy(to) : "—"}
+      </div>
+      <div style={{ ...cellCenter, width: DAYS_W, color: "var(--text-2)", padding: editDays ? 0 : undefined }}>
+        {editDays ? (
+          <CellInput
+            value={String(days)}
+            type="number"
+            min={0}
+            align="center"
+            ariaLabel="Duration in days"
+            onCommit={onCommitDays!}
+          />
+        ) : !isGroup && (isMilestone || !days) ? (
+          "—"
+        ) : (
+          days || "—"
+        )}
+      </div>
+    </>
+  );
+};

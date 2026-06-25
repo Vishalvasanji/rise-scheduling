@@ -12,6 +12,7 @@ from app.models.enums import TaskStatus
 class TaskCreate(BaseModel):
     name: str
     wbs: str | None = None
+    trade: str | None = None
     duration_days: int = Field(default=0, ge=0)
     percent_complete: float = Field(default=0.0, ge=0, le=100)
     status: TaskStatus = TaskStatus.NOT_STARTED
@@ -27,6 +28,7 @@ class TaskUpdate(BaseModel):
 
     name: str | None = None
     wbs: str | None = None
+    trade: str | None = None
     duration_days: int | None = Field(default=None, ge=0)
     percent_complete: float | None = Field(default=None, ge=0, le=100)
     status: TaskStatus | None = None
@@ -44,6 +46,7 @@ class TaskOut(BaseModel):
     project_id: int
     name: str
     wbs: str | None
+    trade: str | None
     duration_days: int
     percent_complete: float
     status: TaskStatus
