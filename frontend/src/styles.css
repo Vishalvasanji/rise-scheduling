@@ -501,6 +501,32 @@ button {
   opacity: 0.45;
 }
 
+/* From/To resting state: plain mmddyy text so the column matches the Gantt width.
+   Clicking swaps in .date-edit (the native picker), overlaid so it doesn't widen
+   the column. */
+.date-rest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.date-rest:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.date-edit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 130px;
+  z-index: 5;
+}
+
 /* ---- Trade typeahead --------------------------------------------------- */
 .trade-cell {
   position: relative;
