@@ -163,36 +163,60 @@ export const CellInput: FC<{
   );
 };
 
-// A native date picker that looks like the resting text until clicked. Clicking
-// opens the calendar (showPicker) and a selection commits immediately. `value` and
-// the committed string are ISO (YYYY-MM-DD); an empty selection commits "".
+// At rest, shows the date as plain mmddyy text — so the From/To columns stay the
+// exact same width as the Gantt list (a native date input's intrinsic width would
+// otherwise force the column wider). Clicking swaps to a native date picker
+// (opened via showPicker), positioned as an overlay so it doesn't widen the column.
+// `value` and the committed string are ISO (YYYY-MM-DD); an empty selection commits "".
 export const DateInput: FC<{
   value: string | null;
   ariaLabel?: string;
   onCommit: (value: string) => void;
 }> = ({ value, ariaLabel, onCommit }) => {
-  const iso = value ?? "";
-  const [draft, setDraft] = useState(iso);
-  useEffect(() => setDraft(iso), [iso]);
+  const [editing, setEditing] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing || !ref.current) return;
+    ref.current.focus();
+    const el = ref.current as HTMLInputElement & { showPicker?: () => void };
+    try {
+      el.showPicker?.();
+    } catch {
+      /* showPicker not available — the native control still works */
+    }
+  }, [editing]);
+
+  if (!editing) {
+    return (
+      <span
+        className="date-rest"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+      >
+        {value ? mmddyy(value) : "—"}
+      </span>
+    );
+  }
+
   return (
     <input
-      className="cell-input cell-input--date"
+      ref={ref}
+      className="cell-input cell-input--date date-edit"
       type="date"
-      value={draft}
+      defaultValue={value ?? ""}
       aria-label={ariaLabel}
-      style={{ textAlign: "center" }}
-      onClick={(e) => {
-        e.stopPropagation();
-        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-        try {
-          el.showPicker?.();
-        } catch {
-          /* showPicker not available — the native control still works */
-        }
-      }}
+      onClick={(e) => e.stopPropagation()}
       onChange={(e) => {
-        setDraft(e.target.value);
-        if (e.target.value !== iso) onCommit(e.target.value);
+        onCommit(e.target.value);
+        setEditing(false);
+      }}
+      onBlur={(e) => {
+        const v = e.target.value;
+        setEditing(false);
+        if (v !== (value ?? "")) onCommit(v);
       }}
     />
   );
@@ -325,6 +349,7 @@ export const LeadCells: FC<{
           color: "var(--text-2)",
           padding: editFrom ? 0 : undefined,
           overflow: editFrom ? "visible" : "hidden",
+          position: editFrom ? "relative" : undefined,
         }}
       >
         {editFrom ? (
@@ -342,6 +367,7 @@ export const LeadCells: FC<{
           color: "var(--text-2)",
           padding: editTo ? 0 : undefined,
           overflow: editTo ? "visible" : "hidden",
+          position: editTo ? "relative" : undefined,
         }}
       >
         {editTo ? (
