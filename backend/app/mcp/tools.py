@@ -45,6 +45,7 @@ def _task_dict(task, labels: dict[str, Any] | None = None) -> dict[str, Any]:
         "wbs": task.wbs,
         # Human-readable group path (phase / building) from the project's labels.
         "group": _wbs_label_path(task.wbs, labels),
+        "building": task.building,
         "duration_days": task.duration_days,
         "percent_complete": task.percent_complete,
         "status": task.status.value if hasattr(task.status, "value") else task.status,
