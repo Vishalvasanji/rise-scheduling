@@ -1214,3 +1214,43 @@ button {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ---- Activity (change-log) module --------------------------------------- */
+
+.activity-page {
+  height: 100%;
+  overflow: auto;
+}
+
+.activity-table {
+  background: var(--surface);
+}
+
+.activity-table .nowrap {
+  white-space: nowrap;
+}
+
+.act-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+
+.act-create {
+  background: rgba(52, 199, 89, 0.16);
+  color: var(--green-ink);
+}
+
+.act-update {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--amber-ink);
+}
+
+.act-delete {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--red-ink);
+}

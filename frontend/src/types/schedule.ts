@@ -66,6 +66,18 @@ export interface ScheduleOut {
   dependencies: DependencyOut[];
 }
 
+// One change-activity (audit) row: who did what, when.
+export interface AuditEntry {
+  id: number;
+  actor: string;
+  action: string; // create | update | delete
+  entity_type: string; // task | dependency
+  entity_id: number | null;
+  project_id: number | null;
+  summary: string | null;
+  created_at: string;
+}
+
 // ---- Pending "what-if" proposals (sandbox preview from chat or the API) ----
 
 export type ChangeType = "new" | "removed" | "moved" | "modified";
