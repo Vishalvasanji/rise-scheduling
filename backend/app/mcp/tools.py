@@ -8,8 +8,13 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from mcp.server.auth.middleware.auth_context import get_access_token
+
+from app.api import authz
 from app.db.session import session_scope
 from app.engine.errors import CircularDependencyError, DateConflictError
+from app.models import User
+from app.repositories import task_repo, user_repo
 from app.schemas.project import ProposalOut, TaskChange
 from app.services import (
     project_service,
@@ -18,7 +23,50 @@ from app.services import (
     scheduling_service,
 )
 
+# Fallback actor for the trusted local stdio path, where there's no per-request
+# user (no auth context). Over HTTP every request carries a connector token, so
+# _actor()/_current_user() resolve the real signed-in user instead.
 ACTOR = "chat"
+
+
+class AccessDenied(Exception):
+    """The connected user isn't assigned to this project."""
+
+    def __init__(self, project_id: int) -> None:
+        super().__init__(f"No access to project {project_id}")
+        self.project_id = project_id
+
+
+def _current_user(session) -> User | None:
+    """The user behind the current MCP request, from their connector token. None on
+    the unauthenticated stdio path."""
+    token = get_access_token()
+    if token is None or not token.subject:
+        return None
+    return user_repo.get_by_email(session, token.subject)
+
+
+def _actor() -> str:
+    """Attribute chat changes to the connected user (email), or 'chat' on stdio."""
+    token = get_access_token()
+    return token.subject if token and token.subject else ACTOR
+
+
+def _assert_access(session, project_id: int) -> None:
+    """Block a connected user from touching a project they aren't assigned to.
+    No-op on the trusted stdio path (no user)."""
+    user = _current_user(session)
+    if user is not None and not authz.can_access_project(session, user, project_id):
+        raise AccessDenied(project_id)
+
+
+def _assert_task_access(session, task_id: int):
+    """Resolve a task and assert access to its project. Returns the task."""
+    task = task_repo.get(session, task_id)
+    if task is None:
+        raise ValueError(f"No task {task_id}")
+    _assert_access(session, task.project_id)
+    return task
 
 
 def _wbs_label_path(wbs: str | None, labels: dict[str, Any] | None) -> str | None:
@@ -71,6 +119,11 @@ def _project_labels(session, project_id: int) -> dict[str, Any] | None:
 
 
 def _error(exc: Exception) -> dict[str, Any]:
+    if isinstance(exc, AccessDenied):
+        return {
+            "ok": False, "error": "forbidden",
+            "project_id": exc.project_id, "message": str(exc),
+        }
     if isinstance(exc, CircularDependencyError):
         return {
             "ok": False, "error": "circular_dependency",
@@ -83,7 +136,12 @@ def _error(exc: Exception) -> dict[str, Any]:
 
 def list_projects() -> dict[str, Any]:
     with session_scope() as s:
-        projects = project_service.list_projects(s)
+        user = _current_user(s)
+        projects = (
+            project_service.list_projects_for_user(s, user)
+            if user is not None
+            else project_service.list_projects(s)
+        )
         return {
             "ok": True,
             "projects": [
@@ -104,6 +162,10 @@ def list_projects() -> dict[str, Any]:
 
 def get_schedule(project_id: int) -> dict[str, Any]:
     with session_scope() as s:
+        try:
+            _assert_access(s, project_id)
+        except AccessDenied as exc:
+            return _error(exc)
         result = project_service.get_schedule(s, project_id)
         if result is None:
             return {"ok": False, "error": "not_found", "message": f"No project {project_id}"}
@@ -138,7 +200,8 @@ def get_schedule(project_id: int) -> dict[str, Any]:
 def create_task(project_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
-            task, _ = scheduling_service.create_task(s, project_id, fields, actor=ACTOR)
+            _assert_access(s, project_id)
+            task, _ = scheduling_service.create_task(s, project_id, fields, actor=_actor())
             return {"ok": True, "task": _task_dict(task, _project_labels(s, project_id))}
         except Exception as exc:  # noqa: BLE001 — converted to structured error
             return _error(exc)
@@ -147,7 +210,8 @@ def create_task(project_id: int, fields: dict[str, Any]) -> dict[str, Any]:
 def update_task(task_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
-            task, _ = scheduling_service.update_task(s, task_id, fields, actor=ACTOR)
+            _assert_task_access(s, task_id)
+            task, _ = scheduling_service.update_task(s, task_id, fields, actor=_actor())
             return {"ok": True, "task": _task_dict(task, _project_labels(s, task.project_id))}
         except Exception as exc:  # noqa: BLE001
             return _error(exc)
@@ -156,7 +220,8 @@ def update_task(task_id: int, fields: dict[str, Any]) -> dict[str, Any]:
 def delete_task(task_id: int) -> dict[str, Any]:
     with session_scope() as s:
         try:
-            scheduling_service.delete_task(s, task_id, actor=ACTOR)
+            _assert_task_access(s, task_id)
+            scheduling_service.delete_task(s, task_id, actor=_actor())
             return {"ok": True, "deleted": task_id}
         except Exception as exc:  # noqa: BLE001
             return _error(exc)
@@ -167,8 +232,11 @@ def create_dependency(
 ) -> dict[str, Any]:
     with session_scope() as s:
         try:
+            # Both endpoints must be in a project the user can reach.
+            _assert_task_access(s, predecessor_id)
+            _assert_task_access(s, successor_id)
             dep, _ = scheduling_service.create_dependency(
-                s, predecessor_id, successor_id, dep_type, lag_days, actor=ACTOR
+                s, predecessor_id, successor_id, dep_type, lag_days, actor=_actor()
             )
             return {"ok": True, "dependency_id": dep.id}
         except Exception as exc:  # noqa: BLE001
@@ -177,6 +245,10 @@ def create_dependency(
 
 def get_critical_path(project_id: int) -> dict[str, Any]:
     with session_scope() as s:
+        try:
+            _assert_access(s, project_id)
+        except AccessDenied as exc:
+            return _error(exc)
         labels = _project_labels(s, project_id)
         tasks = project_service.get_critical_path(s, project_id)
         return {"ok": True, "critical_path": [_task_dict(t, labels) for t in tasks]}
@@ -238,8 +310,9 @@ def propose_changes(
     changes; pass ``replace=True`` to start over."""
     with session_scope() as s:
         try:
+            _assert_access(s, project_id)
             proposal = proposal_service.set_pending(
-                s, project_id, mutations, summary=summary, actor=ACTOR, replace=replace
+                s, project_id, mutations, summary=summary, actor=_actor(), replace=replace
             )
             return {"ok": True, "proposal": _proposal_payload(proposal)}
         except Exception as exc:  # noqa: BLE001 — converted to structured error
@@ -250,7 +323,8 @@ def undo_last_change(project_id: int) -> dict[str, Any]:
     """Remove the most recently staged step from the pending proposal."""
     with session_scope() as s:
         try:
-            proposal = proposal_service.undo_last(s, project_id, actor=ACTOR)
+            _assert_access(s, project_id)
+            proposal = proposal_service.undo_last(s, project_id, actor=_actor())
             if proposal is None:
                 return {"ok": True, "pending": False}
             return {"ok": True, "pending": True, "proposal": _proposal_payload(proposal)}
@@ -261,6 +335,10 @@ def undo_last_change(project_id: int) -> dict[str, Any]:
 def get_proposal(project_id: int) -> dict[str, Any]:
     """Return the project's pending proposal diff, or ``pending: False``."""
     with session_scope() as s:
+        try:
+            _assert_access(s, project_id)
+        except AccessDenied as exc:
+            return _error(exc)
         proposal = proposal_service.get_pending(s, project_id)
         if proposal is None:
             return {"ok": True, "pending": False}
@@ -271,7 +349,8 @@ def apply_proposal(project_id: int) -> dict[str, Any]:
     """Apply the pending proposal for real and clear it."""
     with session_scope() as s:
         try:
-            schedule = proposal_service.apply_pending(s, project_id, actor=ACTOR)
+            _assert_access(s, project_id)
+            schedule = proposal_service.apply_pending(s, project_id, actor=_actor())
             if schedule is None:
                 return {"ok": False, "error": "not_found", "message": "No pending proposal"}
             return {
@@ -286,6 +365,10 @@ def apply_proposal(project_id: int) -> dict[str, Any]:
 def discard_proposal(project_id: int) -> dict[str, Any]:
     """Discard the pending proposal without applying it."""
     with session_scope() as s:
+        try:
+            _assert_access(s, project_id)
+        except AccessDenied as exc:
+            return _error(exc)
         discarded = proposal_service.discard_pending(s, project_id)
         return {"ok": True, "discarded": discarded}
 

@@ -6,8 +6,14 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUserDep, SessionDep
 from app.auth import AuthError
+from app.config import get_settings
 from app.repositories import user_repo
-from app.schemas.auth import LoginRequest, MeResponse, TokenResponse
+from app.schemas.auth import (
+    ConnectorTokenResponse,
+    LoginRequest,
+    MeResponse,
+    TokenResponse,
+)
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,6 +28,16 @@ def login(payload: LoginRequest, session: SessionDep):
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         ) from exc
     return TokenResponse(access_token=token)
+
+
+@router.post("/connector-token", response_model=ConnectorTokenResponse)
+def connector_token(user: CurrentUserDep):
+    """Mint this user's long-lived Claude.ai connector token (Bearer). Their chat
+    changes will be attributed to them and scoped to their assigned projects."""
+    return ConnectorTokenResponse(
+        token=auth_service.issue_connector_token(user),
+        connector_url=get_settings().mcp_public_url,
+    )
 
 
 @router.get("/me", response_model=MeResponse)

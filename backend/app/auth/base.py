@@ -17,7 +17,10 @@ class AuthBackend(Protocol):
 
     def verify_password(self, password: str, password_hash: str) -> bool: ...
 
-    def issue_token(self, *, subject: str, claims: dict | None = None) -> str: ...
+    def issue_token(
+        self, *, subject: str, claims: dict | None = None,
+        ttl_minutes: int | None = None,
+    ) -> str: ...
 
     def verify_token(self, token: str) -> dict:
         """Return the token claims, or raise :class:`AuthError`."""

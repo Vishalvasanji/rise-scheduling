@@ -25,9 +25,13 @@ class JWTAuthBackend:
     def verify_password(self, password: str, password_hash: str) -> bool:
         return _pwd_context.verify(password, password_hash)
 
-    def issue_token(self, *, subject: str, claims: dict | None = None) -> str:
+    def issue_token(
+        self, *, subject: str, claims: dict | None = None,
+        ttl_minutes: int | None = None,
+    ) -> str:
         now = datetime.now(UTC)
-        payload = {"sub": subject, "iat": now, "exp": now + self._ttl}
+        ttl = timedelta(minutes=ttl_minutes) if ttl_minutes is not None else self._ttl
+        payload = {"sub": subject, "iat": now, "exp": now + ttl}
         if claims:
             payload.update(claims)
         return jwt.encode(payload, self._secret, algorithm=_ALGORITHM)

@@ -6,6 +6,7 @@ import { ProjectPage } from "./pages/ProjectPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { ConnectClaudePage } from "./pages/ConnectClaudePage";
 import { useAuth } from "./hooks/useAuth";
 import "./styles.css";
 
@@ -32,7 +33,7 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [tab, setTab] = useState<"gantt" | "grid" | "activity">("gantt");
-  const [view, setView] = useState<"project" | "admin">("project");
+  const [view, setView] = useState<"project" | "admin" | "connect">("project");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 
@@ -113,6 +114,11 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
         <div className="topbar__spacer" />
 
         <div className="topbar__user">
+          {view === "project" && (
+            <button className="top-nav__item" onClick={() => setView("connect")}>
+              Connect Claude
+            </button>
+          )}
           {user.is_admin && view === "project" && (
             <button className="top-nav__item" onClick={() => setView("admin")}>
               Users
@@ -128,7 +134,9 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
       </header>
 
       <main className="content">
-        {view === "admin" ? (
+        {view === "connect" ? (
+          <ConnectClaudePage />
+        ) : view === "admin" ? (
           <AdminUsersPage currentEmail={user.email} />
         ) : status === "loading" ? (
           <p className="muted">Loading…</p>

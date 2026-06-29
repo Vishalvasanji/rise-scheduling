@@ -15,6 +15,13 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class ConnectorTokenResponse(BaseModel):
+    """A long-lived token + the MCP URL to paste into the Claude.ai connector."""
+
+    token: str
+    connector_url: str
+
+
 class MeResponse(BaseModel):
     """The signed-in user's identity + access, for the frontend gate."""
 
