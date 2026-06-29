@@ -17,6 +17,9 @@
   --red: #ff3b30;
   --red-ink: #c4271d;
   --green: #34c759;
+  --green-ink: #1e9e4a;
+  --amber: #ff9f0a;
+  --amber-ink: #b36f00;
   --radius-lg: 18px;
   --radius: 12px;
   --radius-sm: 8px;
@@ -236,6 +239,16 @@ button {
 
 .lg-ms {
   color: var(--text-2);
+}
+
+.lg-new {
+  color: var(--green-ink);
+  font-weight: 600;
+}
+
+.lg-moved {
+  color: var(--amber-ink);
+  font-weight: 600;
 }
 
 /* ---- Toolbar + segmented controls -------------------------------------- */
@@ -621,6 +634,188 @@ button {
 
 .muted {
   color: var(--text-2);
+}
+
+/* ---- Pending "what-if" proposal banner + diff panel --------------------- */
+
+.proposal-banner {
+  background: rgba(0, 113, 227, 0.06);
+  border: 1px solid rgba(0, 113, 227, 0.22);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.proposal-banner.reviewing {
+  background: rgba(255, 159, 10, 0.08);
+  border-color: rgba(255, 159, 10, 0.32);
+}
+
+.proposal-banner__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+}
+
+.proposal-banner__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+.proposal-banner.reviewing .proposal-banner__dot {
+  background: var(--amber);
+}
+
+.proposal-banner__text {
+  font-size: 14px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.proposal-banner__meta {
+  color: var(--text-2);
+}
+
+.proposal-banner__actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-ghost,
+.btn-primary {
+  appearance: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--separator-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  background: var(--surface-2);
+}
+
+.btn-ghost.active {
+  background: rgba(255, 159, 10, 0.16);
+  border-color: rgba(255, 159, 10, 0.4);
+  color: var(--amber-ink);
+}
+
+.btn-ghost.danger {
+  color: var(--red-ink);
+}
+
+.btn-primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--blue-strong);
+}
+
+.btn-ghost:disabled,
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.diff-panel {
+  border-top: 1px solid var(--separator);
+  padding: 10px 14px 12px;
+  background: var(--surface);
+}
+
+.diff-panel__finish {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.diff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.diff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.diff-tag {
+  flex-shrink: 0;
+  min-width: 64px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.diff-tag--new {
+  background: rgba(52, 199, 89, 0.16);
+  color: var(--green-ink);
+}
+
+.diff-tag--moved,
+.diff-tag--modified {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--amber-ink);
+}
+
+.diff-tag--removed {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--red-ink);
+}
+
+.diff-name {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.diff-row--removed .diff-name {
+  text-decoration: line-through;
+  color: var(--text-2);
+}
+
+.diff-detail {
+  color: var(--text-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Review-mode row tints in the Task grid. */
+.task-grid__row--new {
+  background: rgba(52, 199, 89, 0.08);
+}
+
+.task-grid__row--moved,
+.task-grid__row--modified {
+  background: rgba(255, 159, 10, 0.1);
 }
 
 /* ---- Splash (loading / error) ------------------------------------------- */

@@ -2,6 +2,7 @@ import { api } from "./client";
 import type {
   DependencyType,
   ProjectOut,
+  ProposalOut,
   ScheduleOut,
   TaskOut,
 } from "../types/schedule";
@@ -25,3 +26,14 @@ export const createDependency = (
   type: DependencyType = "FS",
   lag_days = 0,
 ) => api.post("/dependencies", { predecessor_id, successor_id, type, lag_days });
+
+// ---- Pending "what-if" proposal (shared with chat) ----
+
+export const getProposal = (projectId: number) =>
+  api.get<ProposalOut | null>(`/projects/${projectId}/proposal`);
+
+export const applyProposal = (projectId: number) =>
+  api.post<ScheduleOut>(`/projects/${projectId}/proposal/apply`, {});
+
+export const discardProposal = (projectId: number) =>
+  api.post(`/projects/${projectId}/proposal/discard`, {});

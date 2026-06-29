@@ -1,10 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ViewMode } from "gantt-task-react";
 import { GanttView } from "../components/GanttView";
 import { TaskTable } from "../components/TaskTable";
+import { ProposalReview } from "../components/ProposalReview";
 import { useSchedule } from "../hooks/useSchedule";
+import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
+import type { ChangeType } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
 
@@ -15,11 +18,18 @@ export function ProjectPage({
   projectId: number;
   tab: "gantt" | "grid";
 }) {
-  const { schedule, loading, error, updateTask, rescheduleTask, removeTask } =
+  const { schedule, loading, error, refresh, updateTask, rescheduleTask, removeTask } =
     useSchedule(projectId);
+  const { proposal, busy, apply, discard } = useProposal(projectId, refresh);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [reviewing, setReviewing] = useState(false);
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
+
+  // Leaving review whenever the proposal is gone (applied/discarded/replaced).
+  useEffect(() => {
+    if (!proposal) setReviewing(false);
+  }, [proposal]);
 
   const toggle = useCallback((id: string) => {
     setCollapsed((cur) => {
@@ -29,7 +39,11 @@ export function ProjectPage({
     });
   }, []);
 
-  const tasks = schedule?.tasks;
+  const review = reviewing && !!proposal;
+  // In review mode the Gantt/grid render the *proposed* schedule; otherwise the
+  // live one.
+  const source = review && proposal ? proposal.schedule : schedule;
+  const tasks = source?.tasks;
   const labels = schedule?.project.wbs_labels;
   const rows = useMemo(() => (tasks ? buildRows(tasks, labels) : []), [tasks, labels]);
   const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
@@ -37,6 +51,17 @@ export function ProjectPage({
     () => rows.filter((r) => r.kind === "group").map((r) => r.id),
     [rows],
   );
+  // task id -> kind of change, for review-mode coloring (removed tasks aren't in
+  // the proposed schedule, so they only appear in the diff panel).
+  const changeStatus = useMemo(() => {
+    const m = new Map<number, ChangeType>();
+    if (review && proposal) {
+      for (const c of proposal.changes) {
+        if (c.change_type !== "removed") m.set(c.task_id, c.change_type);
+      }
+    }
+    return m;
+  }, [review, proposal]);
   // Distinct trades already in use, for the Trade typeahead.
   const trades = useMemo(
     () =>
@@ -50,15 +75,27 @@ export function ProjectPage({
   const collapseAll = useCallback(() => setCollapsed(new Set(groupIds)), [groupIds]);
 
   if (loading && !schedule) return <p className="muted">Loading…</p>;
-  if (!schedule) return <p className="muted">No schedule.</p>;
+  if (!schedule || !source) return <p className="muted">No schedule.</p>;
 
-  const { dependencies } = schedule;
-  const criticalCount = schedule.tasks.filter((t) => t.is_critical).length;
+  const dependencies = source.dependencies;
+  const criticalCount = source.tasks.filter((t) => t.is_critical).length;
   const hasGroups = groupIds.length > 0;
 
   return (
     <div className="project-page">
       {error && <div className="error-banner">{error}</div>}
+
+      {proposal && (
+        <ProposalReview
+          proposal={proposal}
+          reviewing={review}
+          busy={busy}
+          liveFinish={schedule.project.planned_finish}
+          onToggleReview={() => setReviewing((v) => !v)}
+          onApply={apply}
+          onDiscard={discard}
+        />
+      )}
 
       {(tab === "gantt" || hasGroups) && (
         <div className="toolbar">
@@ -77,7 +114,14 @@ export function ProjectPage({
           {tab === "gantt" && (
             <div className="toolbar__right">
               <div className="legend">
-                <span className="lg-critical">Critical ({criticalCount})</span>
+                {review ? (
+                  <>
+                    <span className="lg-new">New</span>
+                    <span className="lg-moved">Moved</span>
+                  </>
+                ) : (
+                  <span className="lg-critical">Critical ({criticalCount})</span>
+                )}
                 <span className="lg-float">Float</span>
                 <span className="lg-ms">◆ Milestone</span>
               </div>
@@ -97,13 +141,14 @@ export function ProjectPage({
         {tab === "gantt" ? (
           <GanttView
             rows={shown}
-            tasks={schedule.tasks}
+            tasks={source.tasks}
             dependencies={dependencies}
             collapsed={collapsed}
             onToggle={toggle}
             onDateChange={rescheduleTask}
             viewMode={view}
             height={height}
+            changeStatus={review ? changeStatus : undefined}
           />
         ) : (
           <div className="table-scroll">
@@ -114,6 +159,7 @@ export function ProjectPage({
               onToggle={toggle}
               onUpdate={updateTask}
               onDelete={removeTask}
+              changeStatus={review ? changeStatus : undefined}
             />
           </div>
         )}

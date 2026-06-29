@@ -26,6 +26,11 @@ class Project(Base):
     # "Clubhouse"). Null/absent prefixes fall back to the raw WBS code.
     wbs_labels: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # One in-flight "what-if" proposal (from chat or the API): the proposed
+    # mutations + metadata. Null when there's nothing pending. The proposed
+    # schedule is computed on read; "apply" replays the mutations for real.
+    pending_proposal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     # Computed roll-up (task -> project), refreshed on every recalc.
     planned_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     planned_finish: Mapped[date | None] = mapped_column(Date, nullable=True)

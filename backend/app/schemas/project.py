@@ -40,3 +40,42 @@ class ScheduleOut(BaseModel):
     project: ProjectOut
     tasks: list[TaskOut]
     dependencies: list[DependencyOut]
+
+
+class ChangeSide(BaseModel):
+    planned_start: date | None = None
+    planned_finish: date | None = None
+    duration_days: int | None = None
+
+
+class TaskChange(BaseModel):
+    """One task's before/after under a proposed change."""
+
+    task_id: int
+    name: str
+    change_type: str  # new | removed | moved | modified
+    current: ChangeSide | None = None
+    proposed: ChangeSide | None = None
+
+
+class ProposalOut(BaseModel):
+    """A pending what-if proposal: its metadata, the proposed (computed) schedule,
+    and the per-task diff vs the live schedule."""
+
+    summary: str | None = None
+    actor: str | None = None
+    created_at: str | None = None
+    schedule: ScheduleOut
+    changes: list[TaskChange]
+
+
+class ProposalCreate(BaseModel):
+    """A what-if proposal: an ordered list of mutation ops + an optional summary.
+
+    Each mutation is ``{op, ...}``: ``update_task{task_id, fields}``,
+    ``create_task{ref, fields}``, ``delete_task{task_id}``,
+    ``create_dependency{predecessor, successor, type?, lag?}`` (endpoints may be a
+    real task id or a ``create_task`` ref), ``delete_dependency{dependency_id}``."""
+
+    mutations: list[dict]
+    summary: str | None = None

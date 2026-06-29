@@ -15,7 +15,7 @@ import { createContext, useContext, useMemo } from "react";
 import type { FC, MouseEvent as ReactMouseEvent } from "react";
 import { Gantt, Task as GanttTask, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
-import type { DependencyOut, TaskOut } from "../types/schedule";
+import type { ChangeType, DependencyOut, TaskOut } from "../types/schedule";
 import type { Row } from "../lib/rollup";
 import { mmddyy, parseLocalDate } from "../lib/dates";
 import {
@@ -37,6 +37,34 @@ const SUMMARY = "#8a8a8e";
 const SUMMARY_SELECT = "#6e6e73";
 const SUMMARY_PROGRESS = "#6e6e73";
 
+// Review-mode change coloring: green = added, amber = moved/modified.
+const CHANGE_STYLE: Record<ChangeType, GanttTask["styles"]> = {
+  new: {
+    backgroundColor: "#34c759",
+    backgroundSelectedColor: "#28a745",
+    progressColor: "#1e9e4a",
+    progressSelectedColor: "#17833c",
+  },
+  moved: {
+    backgroundColor: "#ff9f0a",
+    backgroundSelectedColor: "#e08e00",
+    progressColor: "#cc7f00",
+    progressSelectedColor: "#b36f00",
+  },
+  modified: {
+    backgroundColor: "#ff9f0a",
+    backgroundSelectedColor: "#e08e00",
+    progressColor: "#cc7f00",
+    progressSelectedColor: "#b36f00",
+  },
+  removed: {
+    backgroundColor: "#c7c7cc",
+    backgroundSelectedColor: "#aeaeb2",
+    progressColor: "#aeaeb2",
+    progressSelectedColor: "#8e8e93",
+  },
+};
+
 interface RowInfo {
   wbs: string;
   days: number;
@@ -55,6 +83,8 @@ interface Props {
   viewMode?: ViewMode;
   /** Pixel height for the chart's internal scroll viewport (0 = auto-grow). */
   height?: number;
+  /** Review mode: task id -> change kind. Present => color bars + read-only. */
+  changeStatus?: Map<number, ChangeType>;
 }
 
 interface GanttMeta {
@@ -188,8 +218,10 @@ export function GanttView({
   onDateChange,
   viewMode = ViewMode.Month,
   height = 0,
+  changeStatus,
 }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
+  const review = !!changeStatus;
 
   const ganttTasks = useMemo<GanttTask[]>(() => {
     // Predecessor arrows only between tasks that are currently visible.
@@ -228,6 +260,7 @@ export function GanttView({
         if (!t.planned_start || !t.planned_finish) return;
         const start = parseLocalDate(t.planned_start);
         const end = t.is_milestone ? start : parseLocalDate(t.planned_finish);
+        const change = changeStatus?.get(t.id);
         out.push({
           id: String(t.id),
           name: t.name,
@@ -237,18 +270,20 @@ export function GanttView({
           progress: Math.round(t.percent_complete),
           dependencies: predecessorsOf.get(String(t.id)),
           displayOrder: i + 1,
-          isDisabled: false,
-          styles: {
-            backgroundColor: t.is_critical ? CRITICAL : NORMAL,
-            backgroundSelectedColor: t.is_critical ? CRITICAL_SELECT : NORMAL_SELECT,
-            progressColor: t.is_critical ? "#c4271d" : "#0060df",
-            progressSelectedColor: "#003a99",
-          },
+          isDisabled: review, // review mode is read-only (no drag-to-reschedule)
+          styles: change
+            ? CHANGE_STYLE[change]
+            : {
+                backgroundColor: t.is_critical ? CRITICAL : NORMAL,
+                backgroundSelectedColor: t.is_critical ? CRITICAL_SELECT : NORMAL_SELECT,
+                progressColor: t.is_critical ? "#c4271d" : "#0060df",
+                progressSelectedColor: "#003a99",
+              },
         } as GanttTask);
       }
     });
     return out;
-  }, [rows, dependencies, collapsed]);
+  }, [rows, dependencies, collapsed, changeStatus, review]);
 
   // Per-row metadata + dependency labels for the custom list and tooltip.
   const meta = useMemo<Omit<GanttMeta, "nameWidth" | "onResizeStart" | "onToggle">>(() => {
@@ -306,6 +341,7 @@ export function GanttView({
         tasks={ganttTasks}
         viewMode={viewMode}
         onDateChange={(task: GanttTask) => {
+          if (review) return; // proposed schedule is read-only
           if (!task.id.startsWith("g:")) onDateChange(Number(task.id), task.start);
         }}
         onExpanderClick={(task: GanttTask) => onToggle(task.id)}

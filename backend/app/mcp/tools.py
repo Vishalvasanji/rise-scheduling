@@ -10,7 +10,13 @@ from typing import Any
 
 from app.db.session import session_scope
 from app.engine.errors import CircularDependencyError, DateConflictError
-from app.services import project_service, report_service, scheduling_service
+from app.schemas.project import ProposalOut, TaskChange
+from app.services import (
+    project_service,
+    proposal_service,
+    report_service,
+    scheduling_service,
+)
 
 ACTOR = "chat"
 
@@ -142,6 +148,92 @@ def get_critical_path(project_id: int) -> dict[str, Any]:
     with session_scope() as s:
         tasks = project_service.get_critical_path(s, project_id)
         return {"ok": True, "critical_path": [_task_dict(t) for t in tasks]}
+
+
+# ---- proposals (dry-run "what-if" changes the user reviews before applying) --
+
+def _change_line(c: TaskChange) -> str:
+    if c.change_type == "new":
+        p = c.proposed
+        span = f" ({_iso(p.planned_start)}→{_iso(p.planned_finish)})" if p else ""
+        return f"+ NEW '{c.name}'{span}"
+    if c.change_type == "removed":
+        return f"- REMOVED '{c.name}'"
+    cur, prop = c.current, c.proposed
+    if c.change_type == "moved" and cur and prop:
+        return (
+            f"~ MOVED '{c.name}': {_iso(cur.planned_finish)} → "
+            f"{_iso(prop.planned_finish)}"
+        )
+    return f"~ MODIFIED '{c.name}'"
+
+
+def _proposal_payload(proposal: ProposalOut) -> dict[str, Any]:
+    proj = proposal.schedule.project
+    return {
+        "summary": proposal.summary,
+        "actor": proposal.actor,
+        "created_at": proposal.created_at,
+        "project_finish": _iso(proj.planned_finish),
+        "change_count": len(proposal.changes),
+        "changes": [
+            {
+                "task_id": c.task_id,
+                "name": c.name,
+                "change_type": c.change_type,
+                "current": c.current.model_dump(mode="json") if c.current else None,
+                "proposed": c.proposed.model_dump(mode="json") if c.proposed else None,
+            }
+            for c in proposal.changes
+        ],
+        "diff_text": [_change_line(c) for c in proposal.changes],
+    }
+
+
+def propose_changes(
+    project_id: int, mutations: list[dict[str, Any]], summary: str | None = None
+) -> dict[str, Any]:
+    """Stage a what-if proposal and return its diff (nothing is applied yet)."""
+    with session_scope() as s:
+        try:
+            proposal = proposal_service.set_pending(
+                s, project_id, mutations, summary=summary, actor=ACTOR
+            )
+            return {"ok": True, "proposal": _proposal_payload(proposal)}
+        except Exception as exc:  # noqa: BLE001 — converted to structured error
+            return _error(exc)
+
+
+def get_proposal(project_id: int) -> dict[str, Any]:
+    """Return the project's pending proposal diff, or ``pending: False``."""
+    with session_scope() as s:
+        proposal = proposal_service.get_pending(s, project_id)
+        if proposal is None:
+            return {"ok": True, "pending": False}
+        return {"ok": True, "pending": True, "proposal": _proposal_payload(proposal)}
+
+
+def apply_proposal(project_id: int) -> dict[str, Any]:
+    """Apply the pending proposal for real and clear it."""
+    with session_scope() as s:
+        try:
+            schedule = proposal_service.apply_pending(s, project_id, actor=ACTOR)
+            if schedule is None:
+                return {"ok": False, "error": "not_found", "message": "No pending proposal"}
+            return {
+                "ok": True,
+                "applied": True,
+                "project_finish": _iso(schedule.project.planned_finish),
+            }
+        except Exception as exc:  # noqa: BLE001
+            return _error(exc)
+
+
+def discard_proposal(project_id: int) -> dict[str, Any]:
+    """Discard the pending proposal without applying it."""
+    with session_scope() as s:
+        discarded = proposal_service.discard_pending(s, project_id)
+        return {"ok": True, "discarded": discarded}
 
 
 def generate_report(scope: str, report_type: str) -> dict[str, Any]:

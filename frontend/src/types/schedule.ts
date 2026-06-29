@@ -60,3 +60,29 @@ export interface ScheduleOut {
   tasks: TaskOut[];
   dependencies: DependencyOut[];
 }
+
+// ---- Pending "what-if" proposals (sandbox preview from chat or the API) ----
+
+export type ChangeType = "new" | "removed" | "moved" | "modified";
+
+export interface ChangeSide {
+  planned_start: string | null;
+  planned_finish: string | null;
+  duration_days: number | null;
+}
+
+export interface TaskChange {
+  task_id: number;
+  name: string;
+  change_type: ChangeType;
+  current: ChangeSide | null;
+  proposed: ChangeSide | null;
+}
+
+export interface ProposalOut {
+  summary: string | null;
+  actor: string | null;
+  created_at: string | null;
+  schedule: ScheduleOut; // the proposed (computed) schedule
+  changes: TaskChange[];
+}
