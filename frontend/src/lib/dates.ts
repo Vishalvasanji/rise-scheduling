@@ -8,6 +8,22 @@ export function parseLocalDate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
+// Format a Date as a YYYY-MM-DD string using its LOCAL parts (the inverse of
+// parseLocalDate), so windowing math stays in local calendar days.
+export function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// A YYYY-MM-DD string `n` calendar days after the given ISO date (n may be negative).
+export function addDaysISO(iso: string, n: number): string {
+  const d = parseLocalDate(iso);
+  d.setDate(d.getDate() + n);
+  return toISODate(d);
+}
+
 // Format a date (or YYYY-MM-DD string) as MM/DD/YY.
 export function mmddyy(value: string | Date): string {
   const d = typeof value === "string" ? parseLocalDate(value) : value;

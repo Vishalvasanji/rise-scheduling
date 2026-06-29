@@ -86,6 +86,8 @@ interface Props {
   height?: number;
   /** Review mode: task id -> change kind. Present => color bars + read-only. */
   changeStatus?: Map<number, ChangeType>;
+  /** Message shown when there are no bars to render (e.g. an empty time window). */
+  emptyLabel?: string;
 }
 
 interface GanttMeta {
@@ -221,6 +223,7 @@ export function GanttView({
   viewMode = ViewMode.Month,
   height = 0,
   changeStatus,
+  emptyLabel = "No scheduled tasks yet.",
 }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
   const review = !!changeStatus;
@@ -332,7 +335,7 @@ export function GanttView({
   );
 
   if (ganttTasks.length === 0) {
-    return <p className="muted">No scheduled tasks yet.</p>;
+    return <p className="muted">{emptyLabel}</p>;
   }
 
   const listWidth = leadWidth(nameWidth);

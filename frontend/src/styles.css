@@ -356,7 +356,8 @@ button {
   background: rgba(0, 0, 0, 0.09);
 }
 
-.view-modes {
+.view-modes,
+.range-modes {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -364,7 +365,8 @@ button {
   border-radius: 9px;
 }
 
-.view-modes button {
+.view-modes button,
+.range-modes button {
   appearance: none;
   border: none;
   background: transparent;
@@ -378,15 +380,32 @@ button {
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.view-modes button:hover {
+.view-modes button:hover,
+.range-modes button:hover {
   color: var(--text);
 }
 
-.view-modes button.active {
+.view-modes button.active,
+.range-modes button.active {
   background: var(--surface);
   color: var(--text);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+/* Time-window presets (All / Today / 2-Week) + the active window's dates. */
+.range-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-caption {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Cards / Gantt ------------------------------------------------------ */
