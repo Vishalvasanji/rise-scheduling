@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Integer, String, func
+from sqlalchemy import JSON, Date, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +21,10 @@ class Project(Base):
 
     # Schedule anchor for this project's CPM index space.
     anchor_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Optional WBS-prefix -> display label map for roll-up rows (e.g. "1.1" ->
+    # "Clubhouse"). Null/absent prefixes fall back to the raw WBS code.
+    wbs_labels: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Computed roll-up (task -> project), refreshed on every recalc.
     planned_start: Mapped[date | None] = mapped_column(Date, nullable=True)

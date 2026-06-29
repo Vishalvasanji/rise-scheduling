@@ -29,6 +29,20 @@ from app.services import scheduling_service
 PROJECT_NAME = "Lake Jackson"
 ANCHOR = date(2026, 6, 21)  # beginning of last week (demo roll-forward)
 
+# WBS-prefix -> display label for the roll-up rows (phases + buildings).
+LABELS = {
+    "1": "Phase 1",
+    "2": "Phase 2",
+    "3": "Phase 3",
+    "1.1": "Clubhouse",
+    "1.2": "Building 8",
+    "1.3": "Building 9",
+    "2.1": "Building 10",
+    "2.2": "Building 13",
+    "3.1": "Building 12",
+    "3.2": "Building 11",
+}
+
 # (phase_no, [(building_name, [(task_name, subcontractor/trade, duration_days), ...])])
 # Duration 0 -> milestone. Sourced from the Lake Jackson Master Schedule.
 PHASES: list[tuple[int, list[tuple[str, list[tuple[str, str, int]]]]]] = [
@@ -249,12 +263,24 @@ def _fill_progress(session: Session, project_id: int) -> None:
     session.commit()
 
 
+def _apply_labels(session: Session, project) -> None:
+    """Set the roll-up display labels (idempotent; refreshes on every boot)."""
+    if project.wbs_labels != LABELS:
+        project.wbs_labels = LABELS
+        session.commit()
+
+
 def ensure_lake_jackson(session: Session) -> int | None:
     """Create the Lake Jackson demo project if it doesn't already exist.
 
-    Returns the new project id, or None if it was already present.
+    Always (re)applies the roll-up labels so an already-live project picks them up on
+    deploy. Returns the new project id, or None if it was already present.
     """
-    if _already_imported(session):
+    existing = next(
+        (p for p in project_repo.list_all(session) if p.name == PROJECT_NAME), None
+    )
+    if existing is not None:
+        _apply_labels(session, existing)
         return None
 
     project = project_repo.create(
@@ -315,6 +341,7 @@ def ensure_lake_jackson(session: Session) -> int | None:
     session.commit()
     scheduling_service.recalculate(session, project.id, actor="import")
     _fill_progress(session, project.id)
+    _apply_labels(session, project)
     return project.id
 
 

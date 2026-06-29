@@ -30,7 +30,8 @@ export function ProjectPage({
   }, []);
 
   const tasks = schedule?.tasks;
-  const rows = useMemo(() => (tasks ? buildRows(tasks) : []), [tasks]);
+  const labels = schedule?.project.wbs_labels;
+  const rows = useMemo(() => (tasks ? buildRows(tasks, labels) : []), [tasks, labels]);
   const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
   const groupIds = useMemo(
     () => rows.filter((r) => r.kind === "group").map((r) => r.id),

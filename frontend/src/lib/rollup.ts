@@ -47,7 +47,7 @@ function cmpWbs(a: string, b: string): number {
   return pa.length - pb.length;
 }
 
-export function buildRows(tasks: TaskOut[]): Row[] {
+export function buildRows(tasks: TaskOut[], labels?: Record<string, string> | null): Row[] {
   const withWbs = tasks.filter((t) => t.wbs && t.wbs.trim() !== "");
   const ungrouped = tasks.filter((t) => !t.wbs || t.wbs.trim() === "");
 
@@ -112,7 +112,8 @@ export function buildRows(tasks: TaskOut[]): Row[] {
     for (const node of kids) {
       if (node.group) {
         const id = "g:" + node.code;
-        rows.push({ kind: "group", id, code: node.code, name: node.code, depth, parentId, ...agg(node.code) });
+        const name = labels?.[node.code] ?? node.code;
+        rows.push({ kind: "group", id, code: node.code, name, depth, parentId, ...agg(node.code) });
         walk(node.code, id, depth + 1);
       } else {
         const t = node.task!;
