@@ -65,7 +65,14 @@ export function ActivityPage({ projectId }: { projectId: number }) {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td className="muted nowrap">{when(r.created_at)}</td>
-                <td className="nowrap">{r.actor}</td>
+                <td className="nowrap">
+                  {r.actor}
+                  {r.source === "chat" && (
+                    <span className="via-claude" title="Changed through Claude.ai chat">
+                      via Claude
+                    </span>
+                  )}
+                </td>
                 <td>
                   <span className={`act-badge act-${r.action}`}>{r.action}</span>
                 </td>

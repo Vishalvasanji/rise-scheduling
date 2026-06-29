@@ -70,6 +70,7 @@ export interface ScheduleOut {
 export interface AuditEntry {
   id: number;
   actor: string;
+  source: string; // web | chat (chat = made via the Claude.ai connector)
   action: string; // create | update | delete
   entity_type: string; // task | dependency
   entity_id: number | null;

@@ -486,7 +486,7 @@ def get_pending(session: Session, project_id: int) -> ProposalOut | None:
 
 
 def apply_pending(
-    session: Session, project_id: int, actor: str = "chat"
+    session: Session, project_id: int, actor: str = "chat", source: str = "web"
 ) -> ScheduleOut | None:
     """Replay the pending mutations through the real scheduling service, then
     clear the proposal. Returns the new live schedule, or None if none pending."""
@@ -507,27 +507,30 @@ def apply_pending(
         op = m.get("op")
         if op == "update_task":
             scheduling_service.update_task(
-                session, m["task_id"], m.get("fields") or {}, actor=actor
+                session, m["task_id"], m.get("fields") or {}, actor=actor, source=source
             )
         elif op == "create_task":
             task, _ = scheduling_service.create_task(
-                session, project_id, m.get("fields") or {}, actor=actor
+                session, project_id, m.get("fields") or {}, actor=actor, source=source
             )
             ref = m.get("ref")
             if ref is not None:
                 ref_map[str(ref)] = task.id
         elif op == "delete_task":
-            scheduling_service.delete_task(session, m["task_id"], actor=actor)
+            scheduling_service.delete_task(session, m["task_id"], actor=actor, source=source)
         elif op == "create_dependency":
             pred, succ = _dep_endpoints(m)
             scheduling_service.create_dependency(
                 session, resolve(pred), resolve(succ),
                 DependencyType(_dep_type(m)).value, _dep_lag(m), actor=actor,
+                source=source,
             )
         elif op == "delete_dependency":
             did = m.get("dependency_id")
             if did is not None:
-                scheduling_service.delete_dependency(session, did, actor=actor)
+                scheduling_service.delete_dependency(
+                    session, did, actor=actor, source=source
+                )
         else:
             raise ValueError(f"Unknown mutation op '{op}'")
 

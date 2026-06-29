@@ -12,6 +12,7 @@ class AuditOut(BaseModel):
 
     id: int
     actor: str
+    source: str  # web | chat (chat = made via the Claude.ai connector)
     action: str  # create | update | delete
     entity_type: str  # task | dependency
     entity_id: int | None

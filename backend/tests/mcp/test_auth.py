@@ -14,8 +14,8 @@ from mcp.server.auth.provider import AccessToken
 
 from app.mcp import tools
 from app.mcp.auth import JWTTokenVerifier
-from app.repositories import user_repo
-from app.services import auth_service, project_service
+from app.repositories import audit_repo, user_repo
+from app.services import auth_service, project_service, scheduling_service
 
 ANCHOR = date(2026, 6, 22)
 
@@ -96,10 +96,30 @@ def test_member_lists_and_edits_only_assigned_projects(session):
         assert tools.get_schedule(p2.id)["error"] == "forbidden"
         assert tools.create_task(p2.id, {"name": "X", "duration_days": 1})["error"] == "forbidden"
 
-    # The chat change was attributed to the real user, not "chat".
+    # The chat change was attributed to the real user, not "chat"...
     audited = project_service.get_schedule(session, p1.id)
     task = next(t for t in audited[1] if t.name == "Wall")
     assert task.updated_by == "mcpmember@example.com"
+
+    # ...and stamped source="chat" so the Activity feed can show "via Claude".
+    entry = next(
+        e for e in audit_repo.list_for_project(session, p1.id)
+        if e.entity_id == task.id and e.action == "create"
+    )
+    assert entry.source == "chat"
+    assert entry.actor == "mcpmember@example.com"
+
+
+def test_web_writes_default_to_source_web(session):
+    """A change made through the service layer directly (the web path) stays "web"."""
+    p = project_service.create_project(session, name="Web src", anchor_date=ANCHOR)
+    task, _ = scheduling_service.create_task(
+        session, p.id, {"name": "Slab", "duration_days": 1}, actor="web@example.com"
+    )
+    entry = next(
+        e for e in audit_repo.list_for_project(session, p.id) if e.entity_id == task.id
+    )
+    assert entry.source == "web"
 
 
 def test_admin_reaches_every_project(session):
