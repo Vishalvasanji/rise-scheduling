@@ -8,6 +8,7 @@ import {
   applyProposal,
   discardProposal,
   getProposal,
+  undoLastChange,
 } from "../api/schedule";
 import type { ProposalOut } from "../types/schedule";
 
@@ -68,5 +69,19 @@ export function useProposal(projectId: number | null, onApplied?: () => void) {
     }
   }, [projectId]);
 
-  return { proposal, busy, error, apply, discard, refresh };
+  const undoLast = useCallback(async () => {
+    if (projectId == null) return;
+    setBusy(true);
+    try {
+      // Returns the updated proposal, or null once the last step is undone.
+      setProposal(await undoLastChange(projectId));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to undo the last change");
+    } finally {
+      setBusy(false);
+    }
+  }, [projectId]);
+
+  return { proposal, busy, error, apply, discard, undoLast, refresh };
 }

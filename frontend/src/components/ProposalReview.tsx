@@ -17,6 +17,7 @@ interface Props {
   onToggleReview: () => void;
   onApply: () => void;
   onDiscard: () => void;
+  onUndoLast: () => void;
 }
 
 const LABEL: Record<TaskChange["change_type"], string> = {
@@ -63,9 +64,11 @@ export function ProposalReview({
   onToggleReview,
   onApply,
   onDiscard,
+  onUndoLast,
 }: Props) {
   const [open, setOpen] = useState(true);
   const count = proposal.changes.length;
+  const steps = proposal.steps ?? [];
   const delta = finishDelta(liveFinish, proposal.schedule.project.planned_finish);
 
   return (
@@ -73,10 +76,11 @@ export function ProposalReview({
       <div className="proposal-banner__bar">
         <span className="proposal-banner__dot" />
         <div className="proposal-banner__text">
-          <strong>Proposed change</strong>
+          <strong>Proposed changes</strong>
           {proposal.summary ? <span> — {proposal.summary}</span> : null}
           <span className="proposal-banner__meta">
             {" "}
+            {steps.length > 1 ? `${steps.length} steps · ` : ""}
             {count} {count === 1 ? "change" : "changes"}
             {proposal.actor ? ` · from ${proposal.actor}` : ""}
           </span>
@@ -88,8 +92,13 @@ export function ProposalReview({
           <button onClick={onToggleReview} className={reviewing ? "btn-ghost active" : "btn-ghost"}>
             {reviewing ? "Exit review" : "Review"}
           </button>
+          {steps.length > 0 && (
+            <button onClick={onUndoLast} disabled={busy} className="btn-ghost">
+              Undo last
+            </button>
+          )}
           <button onClick={onDiscard} disabled={busy} className="btn-ghost danger">
-            Discard
+            Discard all
           </button>
           <button onClick={onApply} disabled={busy} className="btn-primary">
             {busy ? "Applying…" : "Apply"}
@@ -99,6 +108,21 @@ export function ProposalReview({
 
       {open && (
         <div className="diff-panel">
+          {steps.length > 0 && (
+            <ol className="step-list">
+              {steps.map((s, i) => (
+                <li key={i} className={`step-row${i === steps.length - 1 ? " step-row--last" : ""}`}>
+                  <span className="step-num">{i + 1}</span>
+                  <span className="step-summary">{s.summary ?? "Change"}</span>
+                  {s.change_count ? (
+                    <span className="step-count">
+                      {s.change_count} {s.change_count === 1 ? "edit" : "edits"}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          )}
           {delta && <div className="diff-panel__finish">{delta}</div>}
           <ul className="diff-list">
             {proposal.changes.map((c) => (

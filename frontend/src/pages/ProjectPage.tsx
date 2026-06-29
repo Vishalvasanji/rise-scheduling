@@ -20,7 +20,7 @@ export function ProjectPage({
 }) {
   const { schedule, loading, error, refresh, updateTask, rescheduleTask, removeTask } =
     useSchedule(projectId);
-  const { proposal, busy, apply, discard } = useProposal(projectId, refresh);
+  const { proposal, busy, apply, discard, undoLast } = useProposal(projectId, refresh);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [reviewing, setReviewing] = useState(false);
@@ -94,6 +94,7 @@ export function ProjectPage({
           onToggleReview={() => setReviewing((v) => !v)}
           onApply={apply}
           onDiscard={discard}
+          onUndoLast={undoLast}
         />
       )}
 

@@ -31,6 +31,7 @@ from app.schemas.project import (
     ChangeSide,
     ProjectOut,
     ProposalOut,
+    ProposalStep,
     ScheduleOut,
     TaskChange,
 )
@@ -321,7 +322,98 @@ def _diff(
     return changes
 
 
+# ---- proposal steps (accumulate; one proposal = an ordered list of steps) -----
+#
+# A proposal stores its mutations as a list of *steps* — each step is one
+# `propose_changes` call: ``{summary, mutations, created_at}``. Stacking appends a
+# step; undo-last pops the last one. The proposed schedule is computed from the
+# flattened mutations (every step's mutations concatenated in order), so the
+# preview/diff are always cumulative. Apply replays the flattened list for real.
+
+def _steps(meta: dict[str, Any]) -> list[dict[str, Any]]:
+    """The proposal's steps, tolerating the legacy flat ``{mutations}`` shape."""
+    if meta.get("steps") is not None:
+        return list(meta["steps"])
+    if meta.get("mutations"):
+        return [{
+            "summary": meta.get("summary"),
+            "mutations": meta["mutations"],
+            "created_at": meta.get("created_at"),
+        }]
+    return []
+
+
+def _flatten(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for step in steps:
+        out.extend(step.get("mutations") or [])
+    return out
+
+
+def _store_steps(
+    session: Session,
+    project_id: int,
+    steps: list[dict[str, Any]],
+    actor: str,
+    created_at: str | None,
+) -> None:
+    """Persist the step list (or clear the proposal when empty)."""
+    project = project_repo.get(session, project_id)
+    if project is None:
+        raise ValueError(f"Unknown project {project_id}")
+    if not steps:
+        project.pending_proposal = None
+    else:
+        project.pending_proposal = {
+            "actor": actor,
+            "created_at": created_at or datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
+            "steps": steps,
+        }
+    session.commit()
+
+
+def _proposal_steps(meta: dict[str, Any]) -> list[ProposalStep]:
+    return [
+        ProposalStep(
+            summary=s.get("summary"),
+            change_count=len(s.get("mutations") or []),
+            created_at=s.get("created_at"),
+        )
+        for s in _steps(meta)
+    ]
+
+
 # ---- public API --------------------------------------------------------------
+
+def add_step(
+    session: Session,
+    project_id: int,
+    mutations: list[dict[str, Any]],
+    summary: str | None = None,
+    actor: str = "chat",
+) -> ProposalOut:
+    """Append a step to the pending proposal (creating one if none exists),
+    keeping the user's earlier staged changes. The COMBINED proposal is validated
+    via a dry-run — a step that would create a cycle/date conflict on top of
+    what's staged is rejected and NOT added; the prior steps stay intact."""
+    project = project_repo.get(session, project_id)
+    if project is None:
+        raise ValueError(f"Unknown project {project_id}")
+    existing = _steps(project.pending_proposal) if project.pending_proposal else []
+    created_at = (project.pending_proposal or {}).get("created_at")
+    new_step = {
+        "summary": summary,
+        "mutations": mutations,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    candidate = [*existing, new_step]
+    _preview(session, project_id, _flatten(candidate))  # validate combined; raises
+    _store_steps(session, project_id, candidate, actor, created_at)
+    proposal = get_pending(session, project_id)
+    assert proposal is not None  # we just stored it
+    return proposal
+
 
 def set_pending(
     session: Session,
@@ -329,23 +421,36 @@ def set_pending(
     mutations: list[dict[str, Any]],
     summary: str | None = None,
     actor: str = "chat",
+    replace: bool = True,
 ) -> ProposalOut:
-    """Validate the mutations (via a dry-run) and store them as the project's
-    single pending proposal. Raises on an invalid proposal — nothing is stored."""
+    """Stage a proposal. ``replace=True`` (default) discards any staged steps and
+    starts over with this one step; ``replace=False`` appends (same as
+    ``add_step``). Raises on an invalid proposal — nothing is stored."""
+    if not replace:
+        return add_step(session, project_id, mutations, summary, actor)
     _preview(session, project_id, mutations)  # validate; raises on cycle/conflict
-    project = project_repo.get(session, project_id)
-    if project is None:
-        raise ValueError(f"Unknown project {project_id}")
-    project.pending_proposal = {
+    step = {
         "summary": summary,
-        "actor": actor,
-        "created_at": datetime.now(UTC).isoformat(),
         "mutations": mutations,
+        "created_at": datetime.now(UTC).isoformat(),
     }
-    session.commit()
+    _store_steps(session, project_id, [step], actor, created_at=None)
     proposal = get_pending(session, project_id)
     assert proposal is not None  # we just set it
     return proposal
+
+
+def undo_last(session: Session, project_id: int, actor: str = "chat") -> ProposalOut | None:
+    """Drop the most recently added step. If no steps remain, the proposal is
+    cleared. Returns the updated proposal, or None when nothing is left."""
+    project = project_repo.get(session, project_id)
+    if project is None or not project.pending_proposal:
+        return None
+    steps = _steps(project.pending_proposal)
+    created_at = project.pending_proposal.get("created_at")
+    steps = steps[:-1]
+    _store_steps(session, project_id, steps, actor, created_at)
+    return get_pending(session, project_id)
 
 
 def get_pending(session: Session, project_id: int) -> ProposalOut | None:
@@ -354,13 +459,19 @@ def get_pending(session: Session, project_id: int) -> ProposalOut | None:
     if project is None or not project.pending_proposal:
         return None
     meta = project.pending_proposal
-    schedule, changes = _preview(session, project_id, meta.get("mutations") or [])
+    steps = _steps(meta)
+    schedule, changes = _preview(session, project_id, _flatten(steps))
+    # The headline summary is the most recent step's (the rest show in `steps`).
+    latest_summary = next(
+        (s.get("summary") for s in reversed(steps) if s.get("summary")), None
+    )
     return ProposalOut(
-        summary=meta.get("summary"),
+        summary=latest_summary,
         actor=meta.get("actor"),
         created_at=meta.get("created_at"),
         schedule=schedule,
         changes=changes,
+        steps=_proposal_steps(meta),
     )
 
 
@@ -372,7 +483,7 @@ def apply_pending(
     project = project_repo.get(session, project_id)
     if project is None or not project.pending_proposal:
         return None
-    mutations = project.pending_proposal.get("mutations") or []
+    mutations = _flatten(_steps(project.pending_proposal))
     ref_map: dict[str, int] = {}
 
     def resolve(endpoint: Any) -> int:
@@ -439,5 +550,6 @@ def _current_schedule(session: Session, project_id: int) -> ScheduleOut | None:
 
 
 __all__ = [
-    "set_pending", "get_pending", "apply_pending", "discard_pending", "date",
+    "add_step", "set_pending", "get_pending", "undo_last",
+    "apply_pending", "discard_pending", "date",
 ]

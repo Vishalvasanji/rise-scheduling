@@ -32,11 +32,20 @@ def get_proposal(project_id: int, session: SessionDep):
 def set_proposal(
     project_id: int, payload: ProposalCreate, session: SessionDep, actor: ActorDep
 ):
-    """Stage a what-if proposal (validated via a dry-run; invalid → 4xx)."""
+    """Stage a what-if proposal (validated via a dry-run; invalid → 4xx). Appends
+    to any pending proposal by default; ``replace=true`` starts over."""
     _require_project(session, project_id)
     return proposal_service.set_pending(
-        session, project_id, payload.mutations, summary=payload.summary, actor=actor
+        session, project_id, payload.mutations, summary=payload.summary,
+        actor=actor, replace=payload.replace,
     )
+
+
+@router.post("/undo", response_model=ProposalOut | None)
+def undo_proposal_step(project_id: int, session: SessionDep, actor: ActorDep):
+    """Drop the most recently staged step (clears the proposal if it was the last)."""
+    _require_project(session, project_id)
+    return proposal_service.undo_last(session, project_id, actor=actor)
 
 
 @router.post("/apply", response_model=ScheduleOut)

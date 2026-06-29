@@ -37,3 +37,6 @@ export const applyProposal = (projectId: number) =>
 
 export const discardProposal = (projectId: number) =>
   api.post(`/projects/${projectId}/proposal/discard`, {});
+
+export const undoLastChange = (projectId: number) =>
+  api.post<ProposalOut | null>(`/projects/${projectId}/proposal/undo`, {});

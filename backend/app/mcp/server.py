@@ -75,11 +75,19 @@ def get_critical_path(project_id: int) -> dict[str, Any]:
 
 @mcp.tool()
 def propose_changes(
-    project_id: int, mutations: list[dict[str, Any]], summary: str | None = None
+    project_id: int,
+    mutations: list[dict[str, Any]],
+    summary: str | None = None,
+    replace: bool = False,
 ) -> dict[str, Any]:
-    """Stage a what-if proposal WITHOUT applying it, and return the diff to show
-    the user (downstream date shifts, new project finish). Use this for any
+    """Stage a what-if proposal WITHOUT applying it, and return the cumulative diff
+    to show the user (downstream date shifts, new project finish). Use this for any
     requested schedule change so the user can review before it's committed.
+
+    This ADDS to any pending proposal — the user keeps stacking changes across
+    messages, then approves once. The returned diff and ``steps`` list reflect ALL
+    staged changes so far. Pass ``replace=True`` to discard what's staged and start
+    over. Use ``undo_last_change`` to drop the most recent step.
 
     ``mutations`` is an ordered list; each item is ``{"op": ..., ...}``:
       - ``{"op": "update_task", "task_id": 12, "fields": {"duration_days": 8}}``
@@ -89,9 +97,17 @@ def propose_changes(
       - ``{"op": "create_dependency", "predecessor": 12, "successor": "t1",
         "type": "FS", "lag": 0}`` (endpoints may be a task id or a create ref)
       - ``{"op": "delete_dependency", "dependency_id": 7}``
-    A proposal that would create a cycle or date conflict is rejected, not stored.
-    After the user approves, call ``apply_proposal``."""
-    return tools.propose_changes(project_id, mutations, summary)
+    A proposal that would create a cycle or date conflict (on top of what's already
+    staged) is rejected and not added; prior steps stay intact. After the user
+    approves, call ``apply_proposal``."""
+    return tools.propose_changes(project_id, mutations, summary, replace)
+
+
+@mcp.tool()
+def undo_last_change(project_id: int) -> dict[str, Any]:
+    """Remove the most recently staged step from the pending what-if proposal,
+    keeping earlier staged changes. Clears the proposal if it was the last step."""
+    return tools.undo_last_change(project_id)
 
 
 @mcp.tool()
