@@ -61,3 +61,19 @@ def test_update_task_marks_critical(session):
     # A single FS chain is entirely critical.
     assert task_repo.get(session, a.id).is_critical
     assert task_repo.get(session, b.id).is_critical
+
+
+def test_start_no_earlier_than_reschedules_without_an_actual(session):
+    project = _new_project(session, "snet")
+    a, _ = scheduling_service.create_task(session, project.id, {"name": "A", "duration_days": 5})
+    start_before = task_repo.get(session, a.id).planned_start
+
+    # Push the start out to a later date via the planning constraint.
+    target = date(2026, 7, 6)  # a Monday, after the default start
+    scheduling_service.update_task(session, a.id, {"start_no_earlier_than": target})
+
+    refreshed = task_repo.get(session, a.id)
+    assert refreshed.planned_start == target          # the computed start moved
+    assert refreshed.start_no_earlier_than == target  # constraint stored
+    assert refreshed.actual_start is None             # ...and NOT logged as an actual
+    assert refreshed.planned_start > start_before

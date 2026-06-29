@@ -10,7 +10,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ChangeType, TaskOut } from "../types/schedule";
 import type { GroupRow, Row, TaskRow } from "../lib/rollup";
-import { businessDays } from "../lib/dates";
+import { businessDays, mmddyy } from "../lib/dates";
+import { isStarted } from "../lib/task";
 import {
   CellInput,
   LeadCells,
@@ -176,6 +177,12 @@ function Line({
         days={days}
         isMilestone={task.is_milestone}
         depth={row.depth}
+        startConstrained={!task.is_milestone && !!task.start_no_earlier_than}
+        constraintLabel={
+          task.start_no_earlier_than
+            ? `Earliest start: ${mmddyy(task.start_no_earlier_than)}`
+            : undefined
+        }
         onCommitName={
           readOnly
             ? undefined
@@ -183,7 +190,19 @@ function Line({
                 if (v) onUpdate(task.id, { name: v });
               }
         }
-        onCommitFrom={readOnly ? undefined : (v) => onUpdate(task.id, { actual_start: v || null })}
+        onCommitFrom={
+          readOnly
+            ? undefined
+            : (v) =>
+                // A not-yet-started task reschedules via the planning constraint;
+                // once work has begun, the date edits the actual start.
+                onUpdate(
+                  task.id,
+                  isStarted(task)
+                    ? { actual_start: v || null }
+                    : { start_no_earlier_than: v || null },
+                )
+        }
         onCommitTo={readOnly ? undefined : (v) => onUpdate(task.id, { actual_finish: v || null })}
         afterName={
           <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>

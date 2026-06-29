@@ -55,6 +55,10 @@ class Task(Base):
     actual_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     actual_finish: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # "Start no earlier than" planning constraint (nullable): a floor on the
+    # computed start so a future task can be rescheduled without faking an actual.
+    start_no_earlier_than: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # Computed by the engine on every recalc.
     planned_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     planned_finish: Mapped[date | None] = mapped_column(Date, nullable=True)

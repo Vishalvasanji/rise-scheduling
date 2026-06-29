@@ -51,7 +51,15 @@ def create_task(project_id: int, fields: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool()
 def update_task(task_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     """Update task fields (progress %, dates, status, duration, ...). The whole
-    project schedule recalculates and is validated before saving."""
+    project schedule recalculates and is validated before saving.
+
+    Rescheduling a START date:
+    - To move a task that has NOT started yet (a plan change — "the trade can start
+      6/30", a delay, a lookahead update), set ``start_no_earlier_than``. It's a
+      planning constraint: a floor on the computed start that still respects
+      predecessors, and it does NOT log work as having happened.
+    - Reserve ``actual_start`` for recording that work has ACTUALLY begun. Do not
+      set a future ``actual_start`` to reschedule — that logs a fake actual."""
     return tools.update_task(task_id, fields)
 
 
@@ -94,6 +102,9 @@ def propose_changes(
 
     ``mutations`` is an ordered list; each item is ``{"op": ..., ...}``:
       - ``{"op": "update_task", "task_id": 12, "fields": {"duration_days": 8}}``
+        (to reschedule a not-yet-started task's start, set
+        ``{"start_no_earlier_than": "2026-06-30"}`` — a planning constraint — NOT a
+        future ``actual_start``)
       - ``{"op": "create_task", "ref": "t1", "fields": {"name": "...", "wbs": "1.1.5",
         "duration_days": 5}}`` (``ref`` lets a later dependency point at it)
       - ``{"op": "delete_task", "task_id": 12}``

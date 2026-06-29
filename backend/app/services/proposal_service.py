@@ -51,6 +51,7 @@ _CREATE_DEFAULTS = {
     "is_milestone": False,
     "actual_start": None,
     "actual_finish": None,
+    "start_no_earlier_than": None,
     "external_ref": None,
     "procore_id": None,
 }
@@ -73,6 +74,7 @@ def _snapshot(t: Task) -> dict[str, Any]:
         "is_milestone": t.is_milestone,
         "actual_start": t.actual_start,
         "actual_finish": t.actual_finish,
+        "start_no_earlier_than": t.start_no_earlier_than,
         "external_ref": t.external_ref,
         "procore_id": t.procore_id,
     }

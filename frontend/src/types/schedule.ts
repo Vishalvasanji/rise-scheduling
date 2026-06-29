@@ -22,6 +22,7 @@ export interface TaskOut {
   is_milestone: boolean;
   actual_start: string | null;
   actual_finish: string | null;
+  start_no_earlier_than: string | null;
   planned_start: string | null;
   planned_finish: string | null;
   late_start: string | null;

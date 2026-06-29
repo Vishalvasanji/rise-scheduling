@@ -52,6 +52,7 @@ def _task_dict(task, labels: dict[str, Any] | None = None) -> dict[str, Any]:
         "is_milestone": task.is_milestone,
         "actual_start": _iso(task.actual_start),
         "actual_finish": _iso(task.actual_finish),
+        "start_no_earlier_than": _iso(task.start_no_earlier_than),
         "planned_start": _iso(task.planned_start),
         "planned_finish": _iso(task.planned_finish),
         "total_float": task.total_float,

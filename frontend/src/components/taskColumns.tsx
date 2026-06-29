@@ -278,6 +278,9 @@ export const LeadCells: FC<{
   onCommitDays?: (value: string) => void;
   onCommitFrom?: (value: string) => void;
   onCommitTo?: (value: string) => void;
+  // Marks the start as pinned by a "start no earlier than" constraint.
+  startConstrained?: boolean;
+  constraintLabel?: string;
   // Optional column(s) inserted right after Task (Task grid only, e.g. Trade).
   afterName?: ReactNode;
 }> = ({
@@ -297,6 +300,8 @@ export const LeadCells: FC<{
   onCommitDays,
   onCommitFrom,
   onCommitTo,
+  startConstrained,
+  constraintLabel,
   afterName,
 }) => {
   const indent = 8 + depth * 14;
@@ -354,15 +359,32 @@ export const LeadCells: FC<{
       </div>
       {afterName}
       <div
+        title={startConstrained ? constraintLabel : undefined}
         style={{
           ...cellCenter,
           width: FROM_W,
           color: "var(--text-2)",
           padding: editFrom ? 0 : undefined,
           overflow: editFrom ? "visible" : "hidden",
-          position: editFrom ? "relative" : undefined,
+          position: editFrom || startConstrained ? "relative" : undefined,
         }}
       >
+        {startConstrained && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 3,
+              top: 3,
+              fontSize: 8,
+              lineHeight: 1,
+              color: "var(--amber-ink)",
+              pointerEvents: "none",
+            }}
+          >
+            ●
+          </span>
+        )}
         {editFrom ? (
           <DateInput value={fromStr} ariaLabel="Start date" onCommit={onCommitFrom!} />
         ) : from ? (
