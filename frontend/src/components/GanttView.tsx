@@ -67,6 +67,7 @@ const CHANGE_STYLE: Record<ChangeType, GanttTask["styles"]> = {
 
 interface RowInfo {
   wbs: string;
+  building: string;
   days: number;
   depth: number;
   isGroup: boolean;
@@ -141,6 +142,7 @@ const GanttListTable: FC<{
               nameWidth={nameW}
               wbs={info?.wbs ?? ""}
               name={t.name}
+              building={info?.building}
               from={t.start}
               to={t.end}
               days={info?.days ?? 0}
@@ -295,6 +297,7 @@ export function GanttView({
       if (r.kind === "group") {
         rowInfo.set(r.id, {
           wbs: r.code,
+          building: "",
           days: r.days,
           depth: r.depth,
           isGroup: true,
@@ -303,6 +306,7 @@ export function GanttView({
       } else {
         rowInfo.set(r.id, {
           wbs: r.code,
+          building: r.task.building ?? "",
           days: r.task.is_milestone ? 0 : r.task.duration_days,
           depth: r.depth,
           isGroup: false,

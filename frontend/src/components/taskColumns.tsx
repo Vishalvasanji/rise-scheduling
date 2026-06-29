@@ -9,6 +9,7 @@ import { mmddyy } from "../lib/dates";
 
 // Fixed widths (Task is the only adjustable one).
 export const WBS_W = 56;
+export const BUILDING_W = 120;
 export const FROM_W = 74;
 export const TO_W = 74;
 export const DAYS_W = 58;
@@ -16,7 +17,8 @@ export const NAME_MIN = 90;
 export const NAME_MAX = 480;
 export const NAME_DEFAULT = 170;
 
-export const leadWidth = (nameW: number) => WBS_W + nameW + FROM_W + TO_W + DAYS_W;
+export const leadWidth = (nameW: number) =>
+  WBS_W + nameW + BUILDING_W + FROM_W + TO_W + DAYS_W;
 
 export const HEADER_H = 42;
 export const ROW_H = 38;
@@ -236,6 +238,7 @@ export const LeadHeader: FC<{
       Task
       <span style={resizeHandle} onMouseDown={onResizeStart} />
     </div>
+    <div style={{ ...cellBase, width: BUILDING_W }}>Building</div>
     {afterName}
     <div style={{ ...cellCenter, width: FROM_W }}>From</div>
     <div style={{ ...cellCenter, width: TO_W }}>To</div>
@@ -261,6 +264,7 @@ export const LeadCells: FC<{
   nameWidth: number;
   wbs: string;
   name: string;
+  building?: string | null;
   from: string | Date | null;
   to: string | Date | null;
   days: number;
@@ -280,6 +284,7 @@ export const LeadCells: FC<{
   nameWidth,
   wbs,
   name,
+  building,
   from,
   to,
   days,
@@ -340,6 +345,12 @@ export const LeadCells: FC<{
             {name}
           </>
         )}
+      </div>
+      <div
+        style={{ ...cellBase, width: BUILDING_W, color: "var(--text-2)" }}
+        title={building ?? ""}
+      >
+        {building || ""}
       </div>
       {afterName}
       <div
