@@ -17,6 +17,15 @@ export async function login(email: string, password: string): Promise<void> {
 
 export const getMe = () => api.get<Me>("/auth/me");
 
+export interface ConnectorToken {
+  token: string;
+  connector_url: string;
+}
+
+// Mint this user's long-lived Claude.ai connector token (Bearer auth).
+export const getConnectorToken = () =>
+  api.post<ConnectorToken>("/auth/connector-token", {});
+
 export function logout(): void {
   localStorage.removeItem(TOKEN_KEY);
 }

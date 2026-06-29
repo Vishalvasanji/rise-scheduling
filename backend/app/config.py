@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     auth_mode: str = "jwt"
     auth_secret: str = "change-me-in-real-deployments-this-is-a-pilot-dummy-secret"
     auth_token_ttl_minutes: int = 720
+    # Long-lived token a user pastes into the Claude.ai custom connector. A year so
+    # they don't have to re-mint constantly; regenerate to rotate.
+    connector_token_ttl_minutes: int = 525_600  # 365 days
+
+    # Public URL of the hosted MCP (Streamable HTTP) service, shown in the
+    # "Connect Claude" panel and used as the connector's resource server URL.
+    mcp_public_url: str = "https://rise-schedule-hub-mcp.onrender.com/mcp"
 
     # Schedule anchor for the pilot (P1 start date).
     pilot_anchor_date: date = date(2026, 6, 22)

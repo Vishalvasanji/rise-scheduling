@@ -11,9 +11,32 @@ import os
 import sys
 from typing import Any
 
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
+from app.config import get_settings
 from app.mcp import tools
+from app.mcp.auth import JWTTokenVerifier
+
+# Decide the transport at import time so HTTP can be constructed with bearer auth.
+# Default to stdio (local Claude Desktop / Claude Code subprocess); --http (or
+# MCP_TRANSPORT=http) serves Streamable HTTP at /mcp for the hosted Render connector.
+_USE_HTTP = "--http" in sys.argv or os.environ.get("MCP_TRANSPORT") == "http"
+
+# Over HTTP every request must carry a per-user connector token (see app/mcp/auth.py),
+# so chat changes are attributed to the real user and scoped to their projects. Stdio
+# is a trusted local subprocess and stays unauthenticated.
+_auth_kwargs: dict[str, Any] = {}
+if _USE_HTTP:
+    _mcp_url = get_settings().mcp_public_url
+    _auth_kwargs = {
+        "token_verifier": JWTTokenVerifier(),
+        "auth": AuthSettings(
+            issuer_url=_mcp_url,
+            resource_server_url=_mcp_url,
+            required_scopes=["mcp"],
+        ),
+    }
 
 # host/port matter only for HTTP transport (a remote connector on Render); for
 # stdio they're ignored. Render injects PORT; default 8001 locally.
@@ -21,6 +44,7 @@ mcp = FastMCP(
     "rise-schedule-hub",
     host="0.0.0.0",
     port=int(os.environ.get("PORT", "8001")),
+    **_auth_kwargs,
 )
 
 
@@ -151,11 +175,7 @@ def generate_report(scope: str, report_type: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    # Default to stdio (local Claude Desktop / Claude Code, launched as a
-    # subprocess). Use --http (or MCP_TRANSPORT=http) to serve Streamable HTTP at
-    # /mcp for a hosted remote connector (Render).
-    use_http = "--http" in sys.argv or os.environ.get("MCP_TRANSPORT") == "http"
-    mcp.run(transport="streamable-http" if use_http else "stdio")
+    mcp.run(transport="streamable-http" if _USE_HTTP else "stdio")
 
 
 if __name__ == "__main__":
