@@ -21,12 +21,30 @@ from app.services import (
 ACTOR = "chat"
 
 
-def _task_dict(task) -> dict[str, Any]:
+def _wbs_label_path(wbs: str | None, labels: dict[str, Any] | None) -> str | None:
+    """Resolve a task's WBS to its labeled group path so chat can refer to a task
+    by its phase/building names, not the raw code. e.g. WBS ``"2.2.5"`` with the
+    project's ``wbs_labels`` -> ``"Phase 2 / Building 13"``. Each proper prefix
+    (``"2"``, ``"2.2"``) is a group level; a prefix with no label falls back to the
+    raw code. Returns None for an empty/ungrouped WBS."""
+    if not wbs:
+        return None
+    segs = wbs.split(".")
+    parts = [
+        (labels or {}).get(".".join(segs[:i]), ".".join(segs[:i]))
+        for i in range(1, len(segs))
+    ]
+    return " / ".join(parts) if parts else None
+
+
+def _task_dict(task, labels: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "id": task.id,
         "project_id": task.project_id,
         "name": task.name,
         "wbs": task.wbs,
+        # Human-readable group path (phase / building) from the project's labels.
+        "group": _wbs_label_path(task.wbs, labels),
         "duration_days": task.duration_days,
         "percent_complete": task.percent_complete,
         "status": task.status.value if hasattr(task.status, "value") else task.status,
@@ -42,6 +60,12 @@ def _task_dict(task) -> dict[str, Any]:
 
 def _iso(d: date | None) -> str | None:
     return d.isoformat() if d else None
+
+
+def _project_labels(session, project_id: int) -> dict[str, Any] | None:
+    """The project's WBS-prefix -> name map, or None."""
+    project = project_service.get_project(session, project_id)
+    return project.wbs_labels if project else None
 
 
 def _error(exc: Exception) -> dict[str, Any]:
@@ -69,6 +93,7 @@ def list_projects() -> dict[str, Any]:
                     "stage": p.stage,
                     "planned_start": _iso(p.planned_start),
                     "planned_finish": _iso(p.planned_finish),
+                    "wbs_labels": p.wbs_labels,
                 }
                 for p in projects
             ],
@@ -81,6 +106,7 @@ def get_schedule(project_id: int) -> dict[str, Any]:
         if result is None:
             return {"ok": False, "error": "not_found", "message": f"No project {project_id}"}
         project, tasks, deps = result
+        labels = project.wbs_labels
         return {
             "ok": True,
             "project": {
@@ -88,8 +114,11 @@ def get_schedule(project_id: int) -> dict[str, Any]:
                 "name": project.name,
                 "planned_start": _iso(project.planned_start),
                 "planned_finish": _iso(project.planned_finish),
+                # WBS-prefix -> name map (e.g. "2.2" -> "Building 13"). Use these
+                # names (or each task's `group`) when referring to phases/buildings.
+                "wbs_labels": labels,
             },
-            "tasks": [_task_dict(t) for t in tasks],
+            "tasks": [_task_dict(t, labels) for t in tasks],
             "dependencies": [
                 {
                     "id": d.id,
@@ -108,7 +137,7 @@ def create_task(project_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
             task, _ = scheduling_service.create_task(s, project_id, fields, actor=ACTOR)
-            return {"ok": True, "task": _task_dict(task)}
+            return {"ok": True, "task": _task_dict(task, _project_labels(s, project_id))}
         except Exception as exc:  # noqa: BLE001 — converted to structured error
             return _error(exc)
 
@@ -117,7 +146,7 @@ def update_task(task_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
             task, _ = scheduling_service.update_task(s, task_id, fields, actor=ACTOR)
-            return {"ok": True, "task": _task_dict(task)}
+            return {"ok": True, "task": _task_dict(task, _project_labels(s, task.project_id))}
         except Exception as exc:  # noqa: BLE001
             return _error(exc)
 
@@ -146,8 +175,9 @@ def create_dependency(
 
 def get_critical_path(project_id: int) -> dict[str, Any]:
     with session_scope() as s:
+        labels = _project_labels(s, project_id)
         tasks = project_service.get_critical_path(s, project_id)
-        return {"ok": True, "critical_path": [_task_dict(t) for t in tasks]}
+        return {"ok": True, "critical_path": [_task_dict(t, labels) for t in tasks]}
 
 
 # ---- proposals (dry-run "what-if" changes the user reviews before applying) --
