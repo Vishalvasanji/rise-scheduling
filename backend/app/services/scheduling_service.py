@@ -108,7 +108,8 @@ def recalculate(session: Session, project_id: int, actor: str = "system") -> Sch
 # ---- mutations (each recalculates + audits in one transaction) ---------------
 
 def create_task(
-    session: Session, project_id: int, fields: dict, actor: str = "system"
+    session: Session, project_id: int, fields: dict, actor: str = "system",
+    source: str = "web",
 ) -> tuple[Task, ScheduleResult]:
     clean = {k: v for k, v in fields.items() if k in WRITABLE_TASK_FIELDS}
     try:
@@ -120,7 +121,7 @@ def create_task(
         audit_repo.record(
             session, actor=actor, action="create", entity_type="task",
             entity_id=task.id, project_id=project_id,
-            summary=f"Created task '{task.name}'", after=clean,
+            summary=f"Created task '{task.name}'", after=clean, source=source,
         )
         session.commit()
         return task, result
@@ -136,6 +137,7 @@ def update_task(
     actor: str = "system",
     expected_version: int | None = None,
     force: bool = False,
+    source: str = "web",
 ) -> tuple[Task, ScheduleResult]:
     existing = task_repo.get(session, task_id)
     if existing is None:
@@ -161,6 +163,7 @@ def update_task(
             session, actor=actor, action="update", entity_type="task",
             entity_id=task_id, project_id=project_id,
             summary=f"Updated task '{task.name}'", before=before, after=clean,
+            source=source,
         )
         session.commit()
         return task, result
@@ -175,6 +178,7 @@ def delete_task(
     actor: str = "system",
     expected_version: int | None = None,
     force: bool = False,
+    source: str = "web",
 ) -> ScheduleResult:
     existing = task_repo.get(session, task_id)
     if existing is None:
@@ -191,6 +195,7 @@ def delete_task(
         audit_repo.record(
             session, actor=actor, action="delete", entity_type="task",
             entity_id=task_id, project_id=project_id, summary=f"Deleted task '{name}'",
+            source=source,
         )
         session.commit()
         return result
@@ -206,6 +211,7 @@ def create_dependency(
     dep_type: str = "FS",
     lag_days: int = 0,
     actor: str = "system",
+    source: str = "web",
 ) -> tuple[Dependency, ScheduleResult]:
     pred = task_repo.get(session, predecessor_id)
     succ = task_repo.get(session, successor_id)
@@ -225,6 +231,7 @@ def create_dependency(
             session, actor=actor, action="create", entity_type="dependency",
             entity_id=dependency.id, project_id=project_id,
             summary=f"Linked {predecessor_id} -> {successor_id} ({dep_type}{_fmt_lag(lag_days)})",
+            source=source,
         )
         session.commit()
         return dependency, result
@@ -234,7 +241,7 @@ def create_dependency(
 
 
 def delete_dependency(
-    session: Session, dependency_id: int, actor: str = "system"
+    session: Session, dependency_id: int, actor: str = "system", source: str = "web"
 ) -> ScheduleResult:
     dependency = dependency_repo.get(session, dependency_id)
     if dependency is None:
@@ -248,6 +255,7 @@ def delete_dependency(
             session, actor=actor, action="delete", entity_type="dependency",
             entity_id=dependency_id, project_id=project_id,
             summary=f"Removed dependency {dependency_id}",
+            source=source,
         )
         session.commit()
         return result

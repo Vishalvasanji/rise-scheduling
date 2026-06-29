@@ -22,9 +22,11 @@ def record(
     summary: str | None = None,
     before: dict[str, Any] | None = None,
     after: dict[str, Any] | None = None,
+    source: str = "web",
 ) -> AuditLog:
     entry = AuditLog(
         actor=actor,
+        source=source,
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,

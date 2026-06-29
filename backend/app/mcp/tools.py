@@ -201,7 +201,9 @@ def create_task(project_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
             _assert_access(s, project_id)
-            task, _ = scheduling_service.create_task(s, project_id, fields, actor=_actor())
+            task, _ = scheduling_service.create_task(
+                s, project_id, fields, actor=_actor(), source="chat"
+            )
             return {"ok": True, "task": _task_dict(task, _project_labels(s, project_id))}
         except Exception as exc:  # noqa: BLE001 — converted to structured error
             return _error(exc)
@@ -211,7 +213,9 @@ def update_task(task_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as s:
         try:
             _assert_task_access(s, task_id)
-            task, _ = scheduling_service.update_task(s, task_id, fields, actor=_actor())
+            task, _ = scheduling_service.update_task(
+                s, task_id, fields, actor=_actor(), source="chat"
+            )
             return {"ok": True, "task": _task_dict(task, _project_labels(s, task.project_id))}
         except Exception as exc:  # noqa: BLE001
             return _error(exc)
@@ -221,7 +225,7 @@ def delete_task(task_id: int) -> dict[str, Any]:
     with session_scope() as s:
         try:
             _assert_task_access(s, task_id)
-            scheduling_service.delete_task(s, task_id, actor=_actor())
+            scheduling_service.delete_task(s, task_id, actor=_actor(), source="chat")
             return {"ok": True, "deleted": task_id}
         except Exception as exc:  # noqa: BLE001
             return _error(exc)
@@ -236,7 +240,8 @@ def create_dependency(
             _assert_task_access(s, predecessor_id)
             _assert_task_access(s, successor_id)
             dep, _ = scheduling_service.create_dependency(
-                s, predecessor_id, successor_id, dep_type, lag_days, actor=_actor()
+                s, predecessor_id, successor_id, dep_type, lag_days,
+                actor=_actor(), source="chat",
             )
             return {"ok": True, "dependency_id": dep.id}
         except Exception as exc:  # noqa: BLE001
@@ -350,7 +355,9 @@ def apply_proposal(project_id: int) -> dict[str, Any]:
     with session_scope() as s:
         try:
             _assert_access(s, project_id)
-            schedule = proposal_service.apply_pending(s, project_id, actor=_actor())
+            schedule = proposal_service.apply_pending(
+                s, project_id, actor=_actor(), source="chat"
+            )
             if schedule is None:
                 return {"ok": False, "error": "not_found", "message": "No pending proposal"}
             return {

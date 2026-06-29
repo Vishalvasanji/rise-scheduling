@@ -1314,3 +1314,16 @@ button {
   font-size: 13px;
   color: var(--text-muted);
 }
+
+/* "via Claude" badge on chat-sourced activity rows. */
+.via-claude {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.14);
+  color: #4f46e5;
+  vertical-align: middle;
+}

@@ -15,6 +15,8 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     actor: Mapped[str] = mapped_column(String, nullable=False)
+    # Where the change came from: "web" (the app) or "chat" (Claude.ai connector).
+    source: Mapped[str] = mapped_column(String, nullable=False, server_default="web")
     action: Mapped[str] = mapped_column(String, nullable=False)
     entity_type: Mapped[str] = mapped_column(String, nullable=False)
     entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
