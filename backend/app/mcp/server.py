@@ -33,7 +33,10 @@ def list_projects() -> dict[str, Any]:
 @mcp.tool()
 def get_schedule(project_id: int) -> dict[str, Any]:
     """Get the full schedule (tasks + dependencies + computed dates/float/critical)
-    for a project."""
+    for a project. Each task carries a ``group`` (its phase/building names, e.g.
+    "Phase 2 / Building 13") and the project carries a ``wbs_labels`` map (WBS
+    prefix -> name). When referring to a phase or building, use these names, NOT the
+    raw WBS code (say "Building 13", not "2.2")."""
     return tools.get_schedule(project_id)
 
 
