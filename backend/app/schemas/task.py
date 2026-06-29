@@ -19,6 +19,7 @@ class TaskCreate(BaseModel):
     is_milestone: bool = False
     actual_start: date | None = None
     actual_finish: date | None = None
+    start_no_earlier_than: date | None = None
     external_ref: str | None = None
     procore_id: str | None = None
 
@@ -35,6 +36,7 @@ class TaskUpdate(BaseModel):
     is_milestone: bool | None = None
     actual_start: date | None = None
     actual_finish: date | None = None
+    start_no_earlier_than: date | None = None
     external_ref: str | None = None
     procore_id: str | None = None
 
@@ -54,6 +56,7 @@ class TaskOut(BaseModel):
     is_milestone: bool
     actual_start: date | None
     actual_finish: date | None
+    start_no_earlier_than: date | None
     # Computed by the engine.
     planned_start: date | None
     planned_finish: date | None

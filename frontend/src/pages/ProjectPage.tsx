@@ -8,6 +8,7 @@ import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
 import { addDaysISO, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
+import { isStarted } from "../lib/task";
 import type { ChangeType, TaskOut } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
@@ -35,7 +36,7 @@ export function ProjectPage({
   projectId: number;
   tab: "gantt" | "grid";
 }) {
-  const { schedule, loading, error, refresh, updateTask, rescheduleTask, removeTask } =
+  const { schedule, loading, error, refresh, updateTask, removeTask } =
     useSchedule(projectId);
   const { proposal, busy, apply, discard, undoLast } = useProposal(projectId, refresh);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
@@ -120,6 +121,17 @@ export function ProjectPage({
 
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule || !source) return <p className="muted">No schedule.</p>;
+
+  // Dragging a Gantt bar reschedules: a not-yet-started task moves via the
+  // planning constraint; a started task edits its actual start.
+  const handleGanttDateChange = (taskId: number, start: Date) => {
+    const iso = toISODate(start);
+    const t = source.tasks.find((x) => x.id === taskId);
+    updateTask(
+      taskId,
+      t && !isStarted(t) ? { start_no_earlier_than: iso } : { actual_start: iso },
+    );
+  };
 
   const dependencies = source.dependencies;
   const criticalCount = (viewTasks ?? source.tasks).filter((t) => t.is_critical).length;
@@ -209,7 +221,7 @@ export function ProjectPage({
             dependencies={dependencies}
             collapsed={collapsed}
             onToggle={toggle}
-            onDateChange={rescheduleTask}
+            onDateChange={handleGanttDateChange}
             viewMode={view}
             height={height}
             changeStatus={review ? changeStatus : undefined}

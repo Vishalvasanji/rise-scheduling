@@ -35,6 +35,11 @@ class ScheduleTask:
     # Actuals pin the bar when present (forward pass uses them as a hard start).
     actual_start: date | None = None
     actual_finish: date | None = None
+    # "Start no earlier than" planning constraint: a floor on early start (the task
+    # can't start before this date, but predecessors are still respected). Applied
+    # only when there is no actual_start. Lets the field reschedule a future start
+    # without logging a fake actual.
+    start_no_earlier_than: date | None = None
 
     # Computed by the CPM passes (working-day indices relative to the anchor).
     early_start: int = 0

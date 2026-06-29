@@ -37,6 +37,7 @@ WRITABLE_TASK_FIELDS = {
     "is_milestone",
     "actual_start",
     "actual_finish",
+    "start_no_earlier_than",
     "external_ref",
     "procore_id",
 }
@@ -52,6 +53,7 @@ def _to_engine_tasks(tasks: list[Task]) -> list[ScheduleTask]:
             is_milestone=bool(t.is_milestone),
             actual_start=t.actual_start,
             actual_finish=t.actual_finish,
+            start_no_earlier_than=t.start_no_earlier_than,
             wbs=t.wbs,
         )
         for t in tasks

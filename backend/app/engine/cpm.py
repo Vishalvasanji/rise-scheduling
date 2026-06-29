@@ -78,6 +78,11 @@ def _forward_pass(graph: Graph, order: list[int], anchor: date) -> int:
                 for dep in graph.predecessors[node_id]
             ]
             es = max(candidates) if candidates else 0
+            # "Start no earlier than" is a floor: predecessors still win when they
+            # push the task later; the constraint only delays an otherwise-earlier
+            # start. Ignored once the task has actually started (actual_start above).
+            if t.start_no_earlier_than is not None:
+                es = max(es, calendar.date_to_index(t.start_no_earlier_than, anchor))
         t.early_start = es
         t.early_finish = es + t.duration_days
         project_end = max(project_end, t.early_finish)
