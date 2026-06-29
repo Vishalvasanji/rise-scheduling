@@ -139,3 +139,106 @@ def test_discard_clears_without_applying(session):
     assert task_repo.get(session, c.id).planned_finish == finish_before
     # Discarding again is a no-op.
     assert proposal_service.discard_pending(session, project.id) is False
+
+
+# ---- accumulating steps ------------------------------------------------------
+
+def test_steps_accumulate_and_diff_is_cumulative(session):
+    project, a, b, c = _chain(session, "stack")
+
+    # Step 1: stretch A. Step 2: also add a task D after C.
+    proposal_service.add_step(
+        session, project.id,
+        [{"op": "update_task", "task_id": a.id, "fields": {"duration_days": 10}}],
+        summary="Stretch A",
+    )
+    proposal = proposal_service.add_step(
+        session, project.id,
+        [
+            {"op": "create_task", "ref": "d", "fields": {"name": "D", "duration_days": 2}},
+            {"op": "create_dependency", "predecessor": c.id, "successor": "d"},
+        ],
+        summary="Add D after C",
+    )
+
+    # Both steps are tracked and the diff reflects BOTH changes.
+    assert len(proposal.steps) == 2
+    assert [s.summary for s in proposal.steps] == ["Stretch A", "Add D after C"]
+    kinds = {ch.name: ch.change_type for ch in proposal.changes}
+    assert kinds["B"] == "moved" and kinds["C"] == "moved"  # downstream of A
+    assert kinds["D"] == "new"
+
+    # Still a pure dry-run: the DB is untouched.
+    session.expire_all()
+    assert task_repo.get(session, a.id).duration_days == 5
+    assert not any(t.name == "D" for t in task_repo.list_for_project(session, project.id))
+
+
+def test_undo_last_removes_only_the_last_step(session):
+    project, a, b, c = _chain(session, "undo")
+    proposal_service.add_step(
+        session, project.id,
+        [{"op": "update_task", "task_id": a.id, "fields": {"duration_days": 10}}],
+        summary="Stretch A",
+    )
+    proposal_service.add_step(
+        session, project.id,
+        [{"op": "create_task", "ref": "d", "fields": {"name": "D", "duration_days": 2}}],
+        summary="Add D",
+    )
+
+    proposal = proposal_service.undo_last(session, project.id)
+    assert proposal is not None
+    assert [s.summary for s in proposal.steps] == ["Stretch A"]
+    assert not any(ch.change_type == "new" for ch in proposal.changes)  # D is gone
+
+    # Undo the final remaining step → proposal cleared entirely.
+    assert proposal_service.undo_last(session, project.id) is None
+    session.expire_all()
+    assert project_repo.get(session, project.id).pending_proposal is None
+
+
+def test_appended_cycle_rejected_prior_steps_survive(session):
+    project, a, b, c = _chain(session, "stackcycle")
+    proposal_service.add_step(
+        session, project.id,
+        [{"op": "update_task", "task_id": a.id, "fields": {"duration_days": 10}}],
+        summary="Stretch A",
+    )
+
+    # Adding C → A would close a cycle: rejected, and the first step survives.
+    with pytest.raises(CircularDependencyError):
+        proposal_service.add_step(
+            session, project.id,
+            [{"op": "create_dependency", "predecessor": c.id, "successor": a.id}],
+            summary="bad",
+        )
+
+    session.expire_all()
+    proposal = proposal_service.get_pending(session, project.id)
+    assert proposal is not None
+    assert [s.summary for s in proposal.steps] == ["Stretch A"]
+
+
+def test_apply_commits_all_stacked_steps(session):
+    project, a, b, c = _chain(session, "applystack")
+    proposal_service.add_step(
+        session, project.id,
+        [{"op": "update_task", "task_id": a.id, "fields": {"duration_days": 10}}],
+        summary="Stretch A",
+    )
+    proposal_service.add_step(
+        session, project.id,
+        [
+            {"op": "create_task", "ref": "d", "fields": {"name": "D", "duration_days": 2}},
+            {"op": "create_dependency", "predecessor": c.id, "successor": "d"},
+        ],
+        summary="Add D after C",
+    )
+
+    proposal_service.apply_pending(session, project.id)
+    session.expire_all()
+    tasks = task_repo.list_for_project(session, project.id)
+    assert task_repo.get(session, a.id).duration_days == 10  # step 1 applied
+    assert any(t.name == "D" for t in tasks)                 # step 2 applied
+    assert project_repo.get(session, project.id).pending_proposal is None

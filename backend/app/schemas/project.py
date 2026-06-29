@@ -58,15 +58,25 @@ class TaskChange(BaseModel):
     proposed: ChangeSide | None = None
 
 
-class ProposalOut(BaseModel):
-    """A pending what-if proposal: its metadata, the proposed (computed) schedule,
-    and the per-task diff vs the live schedule."""
+class ProposalStep(BaseModel):
+    """One staged step of a proposal (one ``propose_changes`` call). The proposal
+    accumulates steps; the diff/schedule are the cumulative result of all of them."""
 
     summary: str | None = None
+    change_count: int | None = None  # number of mutation ops in this step
+    created_at: str | None = None
+
+
+class ProposalOut(BaseModel):
+    """A pending what-if proposal: its metadata, the staged steps, the proposed
+    (computed) schedule, and the per-task diff vs the live schedule."""
+
+    summary: str | None = None  # the most recent step's summary
     actor: str | None = None
     created_at: str | None = None
     schedule: ScheduleOut
     changes: list[TaskChange]
+    steps: list[ProposalStep] = []
 
 
 class ProposalCreate(BaseModel):
@@ -75,7 +85,11 @@ class ProposalCreate(BaseModel):
     Each mutation is ``{op, ...}``: ``update_task{task_id, fields}``,
     ``create_task{ref, fields}``, ``delete_task{task_id}``,
     ``create_dependency{predecessor, successor, type?, lag?}`` (endpoints may be a
-    real task id or a ``create_task`` ref), ``delete_dependency{dependency_id}``."""
+    real task id or a ``create_task`` ref), ``delete_dependency{dependency_id}``.
+
+    By default this **appends** to any pending proposal (the user keeps stacking
+    changes); set ``replace=true`` to discard what's staged and start over."""
 
     mutations: list[dict]
     summary: str | None = None
+    replace: bool = False

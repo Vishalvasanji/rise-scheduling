@@ -176,6 +176,11 @@ def _proposal_payload(proposal: ProposalOut) -> dict[str, Any]:
         "created_at": proposal.created_at,
         "project_finish": _iso(proj.planned_finish),
         "change_count": len(proposal.changes),
+        "step_count": len(proposal.steps),
+        "steps": [
+            {"summary": s.summary, "change_count": s.change_count}
+            for s in proposal.steps
+        ],
         "changes": [
             {
                 "task_id": c.task_id,
@@ -191,16 +196,33 @@ def _proposal_payload(proposal: ProposalOut) -> dict[str, Any]:
 
 
 def propose_changes(
-    project_id: int, mutations: list[dict[str, Any]], summary: str | None = None
+    project_id: int,
+    mutations: list[dict[str, Any]],
+    summary: str | None = None,
+    replace: bool = False,
 ) -> dict[str, Any]:
-    """Stage a what-if proposal and return its diff (nothing is applied yet)."""
+    """Stage a what-if proposal and return its cumulative diff (nothing applied
+    yet). Appends to any pending proposal by default so the user can keep stacking
+    changes; pass ``replace=True`` to start over."""
     with session_scope() as s:
         try:
             proposal = proposal_service.set_pending(
-                s, project_id, mutations, summary=summary, actor=ACTOR
+                s, project_id, mutations, summary=summary, actor=ACTOR, replace=replace
             )
             return {"ok": True, "proposal": _proposal_payload(proposal)}
         except Exception as exc:  # noqa: BLE001 — converted to structured error
+            return _error(exc)
+
+
+def undo_last_change(project_id: int) -> dict[str, Any]:
+    """Remove the most recently staged step from the pending proposal."""
+    with session_scope() as s:
+        try:
+            proposal = proposal_service.undo_last(s, project_id, actor=ACTOR)
+            if proposal is None:
+                return {"ok": True, "pending": False}
+            return {"ok": True, "pending": True, "proposal": _proposal_payload(proposal)}
+        except Exception as exc:  # noqa: BLE001
             return _error(exc)
 
 

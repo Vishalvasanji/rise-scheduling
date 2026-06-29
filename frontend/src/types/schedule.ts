@@ -79,10 +79,17 @@ export interface TaskChange {
   proposed: ChangeSide | null;
 }
 
+export interface ProposalStep {
+  summary: string | null;
+  change_count: number | null;
+  created_at: string | null;
+}
+
 export interface ProposalOut {
   summary: string | null;
   actor: string | null;
   created_at: string | null;
   schedule: ScheduleOut; // the proposed (computed) schedule
   changes: TaskChange[];
+  steps: ProposalStep[]; // the staged steps, in order (proposal accumulates)
 }
