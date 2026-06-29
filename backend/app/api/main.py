@@ -15,6 +15,7 @@ from app.api.routers import (
     proposals,
     reports,
     tasks,
+    users,
 )
 from app.config import get_settings
 from app.engine.errors import CircularDependencyError, DateConflictError, SchedulingError
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth.router)
+    app.include_router(users.router)
     app.include_router(projects.router)
     app.include_router(proposals.router)
     app.include_router(tasks.router)

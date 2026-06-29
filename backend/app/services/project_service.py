@@ -7,12 +7,21 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.models import Dependency, Project, Task
-from app.repositories import dependency_repo, project_repo, task_repo
+from app.models import Dependency, Project, Task, User
+from app.repositories import dependency_repo, project_repo, task_repo, user_repo
 
 
 def list_projects(session: Session) -> list[Project]:
     return project_repo.list_all(session)
+
+
+def list_projects_for_user(session: Session, user: User) -> list[Project]:
+    """Admins see every project; members see only the ones assigned to them."""
+    projects = project_repo.list_all(session)
+    if user.role == "admin":
+        return projects
+    allowed = set(user_repo.assigned_project_ids(session, user.id))
+    return [p for p in projects if p.id in allowed]
 
 
 def get_project(session: Session, project_id: int) -> Project | None:

@@ -11,6 +11,27 @@ client = TestClient(app)
 ANCHOR = "2026-06-22"
 
 
+@pytest.fixture(autouse=True)
+def _auth():
+    """Authenticate the shared client as an admin (every route now requires
+    sign-in; an admin can reach every project)."""
+    from app.db.session import session_scope
+    from app.services import auth_service
+
+    with session_scope() as s:
+        if auth_service.get_by_email(s, "api-admin@example.com") is None:
+            auth_service.create_user(
+                s, email="api-admin@example.com", password="pw",
+                full_name="API Admin", role="admin",
+            )
+    token = client.post(
+        "/auth/login", json={"email": "api-admin@example.com", "password": "pw"}
+    ).json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {token}"
+    yield
+    client.headers.pop("Authorization", None)
+
+
 @pytest.fixture()
 def project_id() -> int:
     resp = client.post("/projects", json={"name": "API Test", "anchor_date": ANCHOR})
