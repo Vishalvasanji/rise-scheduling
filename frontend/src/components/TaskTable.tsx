@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { TaskOut } from "../types/schedule";
+import type { ChangeType, TaskOut } from "../types/schedule";
 import type { GroupRow, Row, TaskRow } from "../lib/rollup";
 import { businessDays } from "../lib/dates";
 import {
@@ -30,6 +30,8 @@ interface Props {
   onToggle: (id: string) => void;
   onUpdate: (taskId: number, fields: Partial<TaskOut>) => void;
   onDelete: (taskId: number) => void;
+  /** Review mode: task id -> change kind. Present => tint rows + read-only. */
+  changeStatus?: Map<number, ChangeType>;
 }
 
 // Trailing (grid-only) column widths.
@@ -44,9 +46,18 @@ const trailingWidth = TRADE_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
 // "Trade" header / cell, placed right after Task via the LeadCells afterName slot.
 const tradeHeader = <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>;
 
-export function TaskTable({ rows, trades, collapsed, onToggle, onUpdate, onDelete }: Props) {
+export function TaskTable({
+  rows,
+  trades,
+  collapsed,
+  onToggle,
+  onUpdate,
+  onDelete,
+  changeStatus,
+}: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
   const minWidth = leadWidth(nameWidth) + trailingWidth;
+  const review = !!changeStatus;
 
   return (
     <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
@@ -74,6 +85,8 @@ export function TaskTable({ rows, trades, collapsed, onToggle, onUpdate, onDelet
             trades={trades}
             onUpdate={onUpdate}
             onDelete={onDelete}
+            readOnly={review}
+            change={changeStatus?.get(r.task.id)}
           />
         ),
       )}
@@ -124,12 +137,16 @@ function Line({
   trades,
   onUpdate,
   onDelete,
+  readOnly = false,
+  change,
 }: {
   row: TaskRow;
   nameWidth: number;
   trades: string[];
   onUpdate: Props["onUpdate"];
   onDelete: Props["onDelete"];
+  readOnly?: boolean;
+  change?: ChangeType;
 }) {
   const task = row.task;
   // Days is a calc of the selected dates (inclusive business-day span), not editable.
@@ -145,8 +162,10 @@ function Line({
     fontWeight: float !== null && float < 0 ? 600 : 400,
   };
 
+  const rowClass = `task-grid__row${change ? ` task-grid__row--${change}` : ""}`;
+
   return (
-    <div className="task-grid__row" style={bodyRowStyle}>
+    <div className={rowClass} style={bodyRowStyle}>
       <LeadCells
         nameWidth={nameWidth}
         wbs={row.code}
@@ -156,43 +175,59 @@ function Line({
         days={days}
         isMilestone={task.is_milestone}
         depth={row.depth}
-        onCommitName={(v) => {
-          if (v) onUpdate(task.id, { name: v });
-        }}
-        onCommitFrom={(v) => onUpdate(task.id, { actual_start: v || null })}
-        onCommitTo={(v) => onUpdate(task.id, { actual_finish: v || null })}
+        onCommitName={
+          readOnly
+            ? undefined
+            : (v) => {
+                if (v) onUpdate(task.id, { name: v });
+              }
+        }
+        onCommitFrom={readOnly ? undefined : (v) => onUpdate(task.id, { actual_start: v || null })}
+        onCommitTo={readOnly ? undefined : (v) => onUpdate(task.id, { actual_finish: v || null })}
         afterName={
           <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>
-            <TradeCell
-              value={task.trade ?? ""}
-              trades={trades}
-              onCommit={(v) => onUpdate(task.id, { trade: v || null })}
-            />
+            {readOnly ? (
+              <span style={{ ...cellBase, width: TRADE_W, color: "var(--text-2)" }}>
+                {task.trade ?? "—"}
+              </span>
+            ) : (
+              <TradeCell
+                value={task.trade ?? ""}
+                trades={trades}
+                onCommit={(v) => onUpdate(task.id, { trade: v || null })}
+              />
+            )}
           </div>
         }
       />
       <div style={floatStyle}>{float ?? "—"}</div>
       <div style={{ ...cellCenter, width: PCT_W, padding: 0, overflow: "visible" }}>
-        <CellInput
-          value={String(task.percent_complete)}
-          type="number"
-          min={0}
-          max={100}
-          align="center"
-          ariaLabel="Percent complete"
-          onCommit={(v) => {
-            const n = Number(v);
-            if (Number.isFinite(n) && n >= 0 && n <= 100) onUpdate(task.id, { percent_complete: n });
-          }}
-        />
+        {readOnly ? (
+          <span style={{ color: "var(--text-2)" }}>{Math.round(task.percent_complete)}</span>
+        ) : (
+          <CellInput
+            value={String(task.percent_complete)}
+            type="number"
+            min={0}
+            max={100}
+            align="center"
+            ariaLabel="Percent complete"
+            onCommit={(v) => {
+              const n = Number(v);
+              if (Number.isFinite(n) && n >= 0 && n <= 100) onUpdate(task.id, { percent_complete: n });
+            }}
+          />
+        )}
       </div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
         {task.is_critical ? "●" : ""}
       </div>
       <div style={{ ...cellBase, width: DEL_W }}>
-        <button className="link-danger" onClick={() => onDelete(task.id)}>
-          delete
-        </button>
+        {!readOnly && (
+          <button className="link-danger" onClick={() => onDelete(task.id)}>
+            delete
+          </button>
+        )}
       </div>
     </div>
   );

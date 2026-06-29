@@ -74,6 +74,46 @@ def get_critical_path(project_id: int) -> dict[str, Any]:
 
 
 @mcp.tool()
+def propose_changes(
+    project_id: int, mutations: list[dict[str, Any]], summary: str | None = None
+) -> dict[str, Any]:
+    """Stage a what-if proposal WITHOUT applying it, and return the diff to show
+    the user (downstream date shifts, new project finish). Use this for any
+    requested schedule change so the user can review before it's committed.
+
+    ``mutations`` is an ordered list; each item is ``{"op": ..., ...}``:
+      - ``{"op": "update_task", "task_id": 12, "fields": {"duration_days": 8}}``
+      - ``{"op": "create_task", "ref": "t1", "fields": {"name": "...", "wbs": "1.1.5",
+        "duration_days": 5}}`` (``ref`` lets a later dependency point at it)
+      - ``{"op": "delete_task", "task_id": 12}``
+      - ``{"op": "create_dependency", "predecessor": 12, "successor": "t1",
+        "type": "FS", "lag": 0}`` (endpoints may be a task id or a create ref)
+      - ``{"op": "delete_dependency", "dependency_id": 7}``
+    A proposal that would create a cycle or date conflict is rejected, not stored.
+    After the user approves, call ``apply_proposal``."""
+    return tools.propose_changes(project_id, mutations, summary)
+
+
+@mcp.tool()
+def get_proposal(project_id: int) -> dict[str, Any]:
+    """Return the project's pending what-if proposal diff (or ``pending: False``)."""
+    return tools.get_proposal(project_id)
+
+
+@mcp.tool()
+def apply_proposal(project_id: int) -> dict[str, Any]:
+    """Apply the project's pending proposal for real (recalculates + audits) and
+    clear it. Call only after the user approves the proposed changes."""
+    return tools.apply_proposal(project_id)
+
+
+@mcp.tool()
+def discard_proposal(project_id: int) -> dict[str, Any]:
+    """Discard the project's pending proposal without applying it."""
+    return tools.discard_proposal(project_id)
+
+
+@mcp.tool()
 def generate_report(scope: str, report_type: str) -> dict[str, Any]:
     """Generate a report. ``scope`` = 'all' or a project id; ``report_type`` =
     leadership_digest | slippage | what_changed."""

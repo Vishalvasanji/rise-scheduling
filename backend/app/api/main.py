@@ -8,7 +8,14 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routers import auth, dependencies, projects, reports, tasks
+from app.api.routers import (
+    auth,
+    dependencies,
+    projects,
+    proposals,
+    reports,
+    tasks,
+)
 from app.config import get_settings
 from app.engine.errors import CircularDependencyError, DateConflictError, SchedulingError
 
@@ -62,6 +69,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router)
     app.include_router(projects.router)
+    app.include_router(proposals.router)
     app.include_router(tasks.router)
     app.include_router(dependencies.router)
     app.include_router(reports.router)
