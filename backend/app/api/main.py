@@ -19,6 +19,7 @@ from app.api.routers import (
 )
 from app.config import get_settings
 from app.engine.errors import CircularDependencyError, DateConflictError, SchedulingError
+from app.services.errors import ConflictError
 
 
 def create_app() -> FastAPI:
@@ -48,6 +49,20 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"error": "date_conflict", "task_id": exc.task_id, "reason": exc.reason},
+        )
+
+    @app.exception_handler(ConflictError)
+    async def _conflict_handler(_request: Request, exc: ConflictError):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "error": "version_conflict",
+                "task_id": exc.task_id,
+                "current_version": exc.current_version,
+                "updated_by": exc.updated_by,
+                "updated_at": exc.updated_at.isoformat() if exc.updated_at else None,
+                "detail": str(exc),
+            },
         )
 
     @app.exception_handler(SchedulingError)

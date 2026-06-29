@@ -8,11 +8,12 @@ chat + web stay consistent.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -67,6 +68,13 @@ class Task(Base):
     total_float: Mapped[int | None] = mapped_column(Integer, nullable=True)
     free_float: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_critical: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Optimistic-lock + last-edit attribution. `version` bumps only on a user edit
+    # (not on the engine's recalc writes), so a concurrent editor can be warned who
+    # changed a task and when before overwriting.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Design-for-Procore: reserved external identity (nullable).
     external_ref: Mapped[str | None] = mapped_column(String, nullable=True)

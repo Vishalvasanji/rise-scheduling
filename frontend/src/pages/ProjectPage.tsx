@@ -3,6 +3,7 @@ import { ViewMode } from "gantt-task-react";
 import { GanttView } from "../components/GanttView";
 import { TaskTable } from "../components/TaskTable";
 import { ProposalReview } from "../components/ProposalReview";
+import { ConflictDialog } from "../components/ConflictDialog";
 import { useSchedule } from "../hooks/useSchedule";
 import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
@@ -36,7 +37,7 @@ export function ProjectPage({
   projectId: number;
   tab: "gantt" | "grid";
 }) {
-  const { schedule, loading, error, refresh, updateTask, removeTask } =
+  const { schedule, loading, error, conflict, dismissConflict, refresh, updateTask, removeTask } =
     useSchedule(projectId);
   const { proposal, busy, apply, discard, undoLast } = useProposal(projectId, refresh);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
@@ -145,6 +146,16 @@ export function ProjectPage({
   return (
     <div className="project-page">
       {error && <div className="error-banner">{error}</div>}
+
+      {conflict && (
+        <ConflictDialog
+          taskName={conflict.taskName}
+          updatedBy={conflict.updatedBy}
+          updatedAt={conflict.updatedAt}
+          onConfirm={conflict.apply}
+          onCancel={dismissConflict}
+        />
+      )}
 
       {proposal && (
         <ProposalReview

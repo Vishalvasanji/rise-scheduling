@@ -85,3 +85,22 @@ def test_delete_task(project_id):
     t = client.post(f"/projects/{project_id}/tasks", json=payload).json()
     assert client.delete(f"/tasks/{t['id']}").status_code == 204
     assert client.get(f"/tasks/{t['id']}").status_code == 404
+
+
+def test_stale_edit_returns_409(project_id):
+    t = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
+    assert t["version"] == 1
+    # First edit succeeds and bumps the version to 2.
+    ok = client.patch(f"/tasks/{t['id']}", json={"duration_days": 6, "expected_version": 1})
+    assert ok.status_code == 200 and ok.json()["version"] == 2
+    # A second edit still claiming version 1 conflicts (409) and names the editor.
+    stale = client.patch(f"/tasks/{t['id']}", json={"duration_days": 7, "expected_version": 1})
+    assert stale.status_code == 409
+    body = stale.json()
+    assert body["error"] == "version_conflict"
+    assert body["current_version"] == 2 and body["updated_by"] == "api-admin@example.com"
+    # Forcing the overwrite lands it.
+    forced = client.patch(
+        f"/tasks/{t['id']}", json={"duration_days": 7, "expected_version": 1, "force": True}
+    )
+    assert forced.status_code == 200 and forced.json()["duration_days"] == 7

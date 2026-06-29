@@ -30,6 +30,9 @@ export interface TaskOut {
   total_float: number | null;
   free_float: number | null;
   is_critical: boolean;
+  version: number;
+  updated_by: string | null;
+  updated_at: string | null;
   external_ref: string | null;
   procore_id: string | null;
 }

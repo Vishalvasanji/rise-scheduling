@@ -29,8 +29,12 @@ def create_task(project_id: int, payload: TaskCreate, session: SessionDep, user:
 @router.patch("/tasks/{task_id}", response_model=TaskOut)
 def update_task(task_id: int, payload: TaskUpdate, session: SessionDep, user: CurrentUserDep):
     assert_task_access(session, user, task_id)
+    data = payload.model_dump(exclude_unset=True)
+    expected_version = data.pop("expected_version", None)
+    force = data.pop("force", False)
     task, _ = scheduling_service.update_task(
-        session, task_id, payload.model_dump(exclude_unset=True), actor=user.email
+        session, task_id, data, actor=user.email,
+        expected_version=expected_version, force=force,
     )
     return task
 
