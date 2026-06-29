@@ -7,7 +7,7 @@ import { useSchedule } from "../hooks/useSchedule";
 import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
-import { addDaysISO, mmddyy, toISODate } from "../lib/dates";
+import { addDaysISO, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
 import type { ChangeType, TaskOut } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
@@ -54,7 +54,11 @@ export function ProjectPage({
   const todayIso = useMemo(() => toISODate(new Date()), []);
   const activeWindow = useMemo(() => {
     if (range === "today") return { start: todayIso, end: todayIso };
-    if (range === "2week") return { start: todayIso, end: addDaysISO(todayIso, 14) };
+    if (range === "2week") {
+      // Two full weeks starting on the Sunday on/before today (Sun … second Sat).
+      const start = startOfWeekISO(todayIso);
+      return { start, end: addDaysISO(start, 13) };
+    }
     return null;
   }, [range, todayIso]);
 
@@ -77,12 +81,11 @@ export function ProjectPage({
   const source = review && proposal ? proposal.schedule : schedule;
   const tasks = source?.tasks;
   const labels = schedule?.project.wbs_labels;
-  // The time-window filter applies to the Schedule (Gantt) view only.
+  // The time-window filter applies to both the Schedule (Gantt) and Tasks views.
   const viewTasks = useMemo(() => {
-    if (!tasks) return tasks;
-    if (tab !== "gantt" || !activeWindow) return tasks;
+    if (!tasks || !activeWindow) return tasks;
     return tasks.filter((t) => overlaps(t, activeWindow.start, activeWindow.end));
-  }, [tasks, tab, activeWindow]);
+  }, [tasks, activeWindow]);
   const rows = useMemo(
     () => (viewTasks ? buildRows(viewTasks, labels) : []),
     [viewTasks, labels],
@@ -144,59 +147,59 @@ export function ProjectPage({
         />
       )}
 
-      {(tab === "gantt" || hasGroups) && (
-        <div className="toolbar">
-          {hasGroups ? (
-            <div className="rollup-controls">
-              <button onClick={expandAll} disabled={collapsed.size === 0}>
-                Expand all
-              </button>
-              <button onClick={collapseAll} disabled={allCollapsed}>
-                Collapse all
-              </button>
-            </div>
-          ) : (
-            <span />
-          )}
+      <div className="toolbar">
+        {hasGroups ? (
+          <div className="rollup-controls">
+            <button onClick={expandAll} disabled={collapsed.size === 0}>
+              Expand all
+            </button>
+            <button onClick={collapseAll} disabled={allCollapsed}>
+              Collapse all
+            </button>
+          </div>
+        ) : (
+          <span />
+        )}
+        <div className="toolbar__right">
           {tab === "gantt" && (
-            <div className="toolbar__right">
-              <div className="legend">
-                {review ? (
-                  <>
-                    <span className="lg-new">New</span>
-                    <span className="lg-moved">Moved</span>
-                  </>
-                ) : (
-                  <span className="lg-critical">Critical ({criticalCount})</span>
-                )}
-                <span className="lg-float">Float</span>
-                <span className="lg-ms">◆ Milestone</span>
-              </div>
-              <div className="range-control">
-                {windowLabel && <span className="range-caption">{windowLabel}</span>}
-                <div className="range-modes">
-                  {RANGES.map((r) => (
-                    <button
-                      key={r.key}
-                      className={range === r.key ? "active" : ""}
-                      onClick={() => selectRange(r.key)}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="view-modes">
-                {VIEW_MODES.map((m) => (
-                  <button key={m} className={view === m ? "active" : ""} onClick={() => setView(m)}>
-                    {m}
-                  </button>
-                ))}
-              </div>
+            <div className="legend">
+              {review ? (
+                <>
+                  <span className="lg-new">New</span>
+                  <span className="lg-moved">Moved</span>
+                </>
+              ) : (
+                <span className="lg-critical">Critical ({criticalCount})</span>
+              )}
+              <span className="lg-float">Float</span>
+              <span className="lg-ms">◆ Milestone</span>
+            </div>
+          )}
+          <div className="range-control">
+            {windowLabel && <span className="range-caption">{windowLabel}</span>}
+            <div className="range-modes">
+              {RANGES.map((r) => (
+                <button
+                  key={r.key}
+                  className={range === r.key ? "active" : ""}
+                  onClick={() => selectRange(r.key)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {tab === "gantt" && (
+            <div className="view-modes">
+              {VIEW_MODES.map((m) => (
+                <button key={m} className={view === m ? "active" : ""} onClick={() => setView(m)}>
+                  {m}
+                </button>
+              ))}
             </div>
           )}
         </div>
-      )}
+      </div>
 
       <div className="schedule-region" ref={regionRef}>
         {tab === "gantt" ? (
@@ -214,6 +217,10 @@ export function ProjectPage({
               activeWindow ? "No tasks scheduled in this window." : "No scheduled tasks yet."
             }
           />
+        ) : shown.length === 0 ? (
+          <p className="muted">
+            {activeWindow ? "No tasks scheduled in this window." : "No tasks yet."}
+          </p>
         ) : (
           <div className="table-scroll">
             <TaskTable

@@ -24,6 +24,14 @@ export function addDaysISO(iso: string, n: number): string {
   return toISODate(d);
 }
 
+// The Sunday on or before the given date (Sunday-based week start). If the date
+// is already a Sunday it's returned unchanged. getDay(): 0=Sun … 6=Sat.
+export function startOfWeekISO(iso: string): string {
+  const d = parseLocalDate(iso);
+  d.setDate(d.getDate() - d.getDay());
+  return toISODate(d);
+}
+
 // Format a date (or YYYY-MM-DD string) as MM/DD/YY.
 export function mmddyy(value: string | Date): string {
   const d = typeof value === "string" ? parseLocalDate(value) : value;
