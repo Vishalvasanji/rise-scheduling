@@ -36,13 +36,12 @@ interface Props {
 
 // Trailing (grid-only) column widths.
 const TRADE_W = 140;
-const BUILDING_W = 120;
 const FLOAT_W = 64;
 const PCT_W = 64;
 const CRIT_W = 64;
 const DEL_W = 72;
 
-const trailingWidth = TRADE_W + BUILDING_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
+const trailingWidth = TRADE_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
 
 // "Trade" header / cell, placed right after Task via the LeadCells afterName slot.
 const tradeHeader = <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>;
@@ -64,7 +63,6 @@ export function TaskTable({
     <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
       <div className="task-grid__header" style={headerRowStyle}>
         <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} afterName={tradeHeader} />
-        <div style={{ ...cellBase, width: BUILDING_W }}>Building</div>
         <div style={{ ...cellCenter, width: FLOAT_W }}>Float</div>
         <div style={{ ...cellCenter, width: PCT_W }}>%</div>
         <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
@@ -123,7 +121,6 @@ function GroupLine({
         onToggle={onToggle}
         afterName={<div style={{ ...cellBase, width: TRADE_W }} />}
       />
-      <div style={{ ...cellBase, width: BUILDING_W, color: "var(--text-3)" }} />
       <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
       <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
@@ -173,6 +170,7 @@ function Line({
         nameWidth={nameWidth}
         wbs={row.code}
         name={task.name}
+        building={task.building}
         from={task.planned_start}
         to={task.planned_finish}
         days={days}
@@ -203,9 +201,6 @@ function Line({
           </div>
         }
       />
-      <div style={{ ...cellBase, width: BUILDING_W, color: "var(--text-2)" }} title={task.building ?? ""}>
-        {task.building ?? "—"}
-      </div>
       <div style={floatStyle}>{float ?? "—"}</div>
       <div style={{ ...cellCenter, width: PCT_W, padding: 0, overflow: "visible" }}>
         {readOnly ? (
