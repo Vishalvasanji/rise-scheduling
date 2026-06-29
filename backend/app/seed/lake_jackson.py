@@ -270,6 +270,25 @@ def _apply_labels(session: Session, project) -> None:
         session.commit()
 
 
+def _apply_buildings(session: Session, project_id: int) -> None:
+    """Tag each task with its building name, derived from the WBS ``phase.building``
+    prefix (e.g. ``"2.2.x"`` -> "Building 13"). Idempotent; refreshes on every boot
+    so an already-live project picks it up on deploy."""
+    changed = False
+    for t in task_repo.list_for_project(session, project_id):
+        if not t.wbs:
+            continue
+        segs = t.wbs.split(".")
+        if len(segs) < 2:
+            continue
+        building = LABELS.get(".".join(segs[:2]))
+        if building and t.building != building:
+            t.building = building
+            changed = True
+    if changed:
+        session.commit()
+
+
 def ensure_lake_jackson(session: Session) -> int | None:
     """Create the Lake Jackson demo project if it doesn't already exist.
 
@@ -281,6 +300,7 @@ def ensure_lake_jackson(session: Session) -> int | None:
     )
     if existing is not None:
         _apply_labels(session, existing)
+        _apply_buildings(session, existing.id)
         return None
 
     project = project_repo.create(
@@ -342,6 +362,7 @@ def ensure_lake_jackson(session: Session) -> int | None:
     scheduling_service.recalculate(session, project.id, actor="import")
     _fill_progress(session, project.id)
     _apply_labels(session, project)
+    _apply_buildings(session, project.id)
     return project.id
 
 

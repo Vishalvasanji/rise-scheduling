@@ -47,6 +47,7 @@ class TaskOut(BaseModel):
     name: str
     wbs: str | None
     trade: str | None
+    building: str | None
     duration_days: int
     percent_complete: float
     status: TaskStatus

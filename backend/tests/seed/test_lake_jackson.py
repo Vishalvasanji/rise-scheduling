@@ -34,6 +34,11 @@ def test_ensure_lake_jackson(session):
         assert all(t.planned_start and t.planned_finish for t in tasks)
         # WBS encodes phase.building.task for the roll-ups.
         assert all(len(t.wbs.split(".")) == 3 for t in tasks)
+        # Every task is tagged with its building name (from the WBS prefix).
+        assert all(t.building for t in tasks)
+        assert {t.building for t in tasks} == {v for k, v in LABELS.items() if "." in k}
+        # A 2.2.x task belongs to Building 13.
+        assert all(t.building == "Building 13" for t in tasks if t.wbs.startswith("2.2."))
         # Phase gate: phase 2 starts only after phase 1 has finished.
         p1_finish = max(t.planned_finish for t in tasks if t.wbs.startswith("1."))
         p2_start = min(t.planned_start for t in tasks if t.wbs.startswith("2."))

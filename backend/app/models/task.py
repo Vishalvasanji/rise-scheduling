@@ -39,6 +39,9 @@ class Task(Base):
     wbs: Mapped[str | None] = mapped_column(String, nullable=True)
     # Responsible trade (free text, e.g. "Electrical"). Nullable; client-editable.
     trade: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Building this task belongs to (e.g. "Building 13", "Clubhouse"). Nullable;
+    # populated structurally (e.g. by the Lake Jackson import from the WBS prefix).
+    building: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Planning inputs.
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
