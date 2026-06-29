@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import SessionDep
+from app.api.deps import CurrentUserDep, SessionDep
 from app.auth import AuthError
-from app.schemas.auth import LoginRequest, TokenResponse
+from app.repositories import user_repo
+from app.schemas.auth import LoginRequest, MeResponse, TokenResponse
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -21,3 +22,14 @@ def login(payload: LoginRequest, session: SessionDep):
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         ) from exc
     return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=MeResponse)
+def me(user: CurrentUserDep, session: SessionDep):
+    return MeResponse(
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        is_admin=user.role == "admin",
+        project_ids=user_repo.assigned_project_ids(session, user.id),
+    )

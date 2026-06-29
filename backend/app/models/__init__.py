@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.models.resource import Resource
 from app.models.task import Task
 from app.models.user import User
+from app.models.user_project import UserProject
 
 __all__ = [
     "AuditLog",
@@ -20,4 +21,5 @@ __all__ = [
     "Resource",
     "Task",
     "User",
+    "UserProject",
 ]
