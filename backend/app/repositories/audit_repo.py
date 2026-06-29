@@ -47,3 +47,14 @@ def list_for_project(session: Session, project_id: int, limit: int = 100) -> lis
             .limit(limit)
         )
     )
+
+
+def list_recent(session: Session, limit: int = 200) -> list[AuditLog]:
+    """Most recent activity across all projects (admin)."""
+    return list(
+        session.scalars(
+            select(AuditLog)
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(limit)
+        )
+    )

@@ -3,6 +3,7 @@ import { listProjects } from "./api/schedule";
 import type { ProjectOut } from "./types/schedule";
 import type { Me } from "./api/auth";
 import { ProjectPage } from "./pages/ProjectPage";
+import { ActivityPage } from "./pages/ActivityPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { useAuth } from "./hooks/useAuth";
@@ -30,7 +31,7 @@ export default function App() {
 function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [tab, setTab] = useState<"gantt" | "grid">("gantt");
+  const [tab, setTab] = useState<"gantt" | "grid" | "activity">("gantt");
   const [view, setView] = useState<"project" | "admin">("project");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +95,12 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
                 >
                   Tasks
                 </button>
+                <button
+                  className={`top-nav__item${tab === "activity" ? " active" : ""}`}
+                  onClick={() => setTab("activity")}
+                >
+                  Activity
+                </button>
               </>
             )
           ) : (
@@ -134,7 +141,11 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
             </button>
           </div>
         ) : selected != null ? (
-          <ProjectPage key={selected} projectId={selected} tab={tab} />
+          tab === "activity" ? (
+            <ActivityPage key={`act-${selected}`} projectId={selected} />
+          ) : (
+            <ProjectPage key={selected} projectId={selected} tab={tab} />
+          )
         ) : (
           <p className="muted">
             No projects assigned yet

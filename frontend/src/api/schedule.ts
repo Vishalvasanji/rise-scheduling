@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  AuditEntry,
   DependencyType,
   ProjectOut,
   ProposalOut,
@@ -42,3 +43,8 @@ export const discardProposal = (projectId: number) =>
 
 export const undoLastChange = (projectId: number) =>
   api.post<ProposalOut | null>(`/projects/${projectId}/proposal/undo`, {});
+
+// ---- Change activity (audit) ----
+
+export const getAudit = (projectId: number, limit = 100) =>
+  api.get<AuditEntry[]>(`/projects/${projectId}/audit?limit=${limit}`);

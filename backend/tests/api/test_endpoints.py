@@ -87,6 +87,18 @@ def test_delete_task(project_id):
     assert client.get(f"/tasks/{t['id']}").status_code == 404
 
 
+def test_activity_feed(project_id):
+    t = client.post(
+        f"/projects/{project_id}/tasks", json={"name": "Framing", "duration_days": 5}
+    ).json()
+    client.patch(f"/tasks/{t['id']}", json={"duration_days": 7})
+    feed = client.get(f"/projects/{project_id}/audit").json()
+    # Newest-first; the most recent entry is the update, by the signed-in admin.
+    assert feed[0]["action"] == "update"
+    assert feed[0]["actor"] == "api-admin@example.com"
+    assert any(e["action"] == "create" and "Framing" in (e["summary"] or "") for e in feed)
+
+
 def test_stale_edit_returns_409(project_id):
     t = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
     assert t["version"] == 1
