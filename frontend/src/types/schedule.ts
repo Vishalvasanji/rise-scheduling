@@ -48,6 +48,7 @@ export interface ProjectOut {
   units: number | null;
   stage: string | null;
   anchor_date: string;
+  wbs_labels: Record<string, string> | null;
   planned_start: string | null;
   planned_finish: string | null;
   external_ref: string | null;

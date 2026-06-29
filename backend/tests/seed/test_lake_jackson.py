@@ -5,7 +5,13 @@ from __future__ import annotations
 from datetime import date
 
 from app.repositories import project_repo, task_repo
-from app.seed.lake_jackson import ANCHOR, PHASES, PROJECT_NAME, ensure_lake_jackson
+from app.seed.lake_jackson import (
+    ANCHOR,
+    LABELS,
+    PHASES,
+    PROJECT_NAME,
+    ensure_lake_jackson,
+)
 
 
 def _expected_task_count() -> int:
@@ -21,6 +27,7 @@ def test_ensure_lake_jackson(session):
     project = next(p for p in project_repo.list_all(session) if p.name == PROJECT_NAME)
     try:
         assert project.anchor_date == ANCHOR
+        assert project.wbs_labels == LABELS
         tasks = task_repo.list_for_project(session, project.id)
         assert len(tasks) == _expected_task_count()
         # No cycles: every task got computed dates from the recalc.

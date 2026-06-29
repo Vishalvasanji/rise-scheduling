@@ -27,6 +27,7 @@ class ProjectOut(BaseModel):
     units: int | None
     stage: str | None
     anchor_date: date
+    wbs_labels: dict[str, str] | None
     planned_start: date | None
     planned_finish: date | None
     external_ref: str | None
