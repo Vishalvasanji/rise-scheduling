@@ -7,7 +7,7 @@ nothing is persisted.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from app.repositories import (
     project_repo,
     task_repo,
 )
+from app.services.errors import ConflictError
 
 # Fields a client is allowed to write on a task (everything else is computed).
 WRITABLE_TASK_FIELDS = {
@@ -111,7 +112,10 @@ def create_task(
 ) -> tuple[Task, ScheduleResult]:
     clean = {k: v for k, v in fields.items() if k in WRITABLE_TASK_FIELDS}
     try:
-        task = task_repo.create(session, project_id=project_id, **clean)
+        task = task_repo.create(
+            session, project_id=project_id,
+            updated_by=actor, updated_at=datetime.now(UTC), **clean,
+        )
         result = _recalc_and_persist(session, project_id)
         audit_repo.record(
             session, actor=actor, action="create", entity_type="task",
@@ -126,16 +130,32 @@ def create_task(
 
 
 def update_task(
-    session: Session, task_id: int, fields: dict, actor: str = "system"
+    session: Session,
+    task_id: int,
+    fields: dict,
+    actor: str = "system",
+    expected_version: int | None = None,
+    force: bool = False,
 ) -> tuple[Task, ScheduleResult]:
     existing = task_repo.get(session, task_id)
     if existing is None:
         raise ValueError(f"Unknown task {task_id}")
+    # Optimistic lock: reject a stale write unless the caller forces the overwrite.
+    if expected_version is not None and not force and existing.version != expected_version:
+        raise ConflictError(
+            task_id, existing.version, existing.updated_by, existing.updated_at
+        )
     project_id = existing.project_id
     before = {k: getattr(existing, k) for k in fields if k in WRITABLE_TASK_FIELDS}
     clean = {k: v for k, v in fields.items() if k in WRITABLE_TASK_FIELDS}
+    stamped = {
+        **clean,
+        "version": existing.version + 1,
+        "updated_by": actor,
+        "updated_at": datetime.now(UTC),
+    }
     try:
-        task = task_repo.update(session, task_id, clean)
+        task = task_repo.update(session, task_id, stamped)
         result = _recalc_and_persist(session, project_id)
         audit_repo.record(
             session, actor=actor, action="update", entity_type="task",
@@ -149,10 +169,20 @@ def update_task(
         raise
 
 
-def delete_task(session: Session, task_id: int, actor: str = "system") -> ScheduleResult:
+def delete_task(
+    session: Session,
+    task_id: int,
+    actor: str = "system",
+    expected_version: int | None = None,
+    force: bool = False,
+) -> ScheduleResult:
     existing = task_repo.get(session, task_id)
     if existing is None:
         raise ValueError(f"Unknown task {task_id}")
+    if expected_version is not None and not force and existing.version != expected_version:
+        raise ConflictError(
+            task_id, existing.version, existing.updated_by, existing.updated_at
+        )
     project_id = existing.project_id
     name = existing.name
     try:

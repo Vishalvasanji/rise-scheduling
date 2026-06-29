@@ -52,6 +52,9 @@ _CREATE_DEFAULTS = {
     "actual_start": None,
     "actual_finish": None,
     "start_no_earlier_than": None,
+    "version": 1,
+    "updated_by": None,
+    "updated_at": None,
     "external_ref": None,
     "procore_id": None,
 }
@@ -75,6 +78,9 @@ def _snapshot(t: Task) -> dict[str, Any]:
         "actual_start": t.actual_start,
         "actual_finish": t.actual_finish,
         "start_no_earlier_than": t.start_no_earlier_than,
+        "version": t.version,
+        "updated_by": t.updated_by,
+        "updated_at": t.updated_at,
         "external_ref": t.external_ref,
         "procore_id": t.procore_id,
     }

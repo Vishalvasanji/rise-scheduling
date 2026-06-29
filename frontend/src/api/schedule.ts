@@ -12,7 +12,9 @@ export const listProjects = () => api.get<ProjectOut[]>("/projects");
 export const getSchedule = (projectId: number) =>
   api.get<ScheduleOut>(`/projects/${projectId}/schedule`);
 
-export const updateTask = (taskId: number, fields: Partial<TaskOut>) =>
+export type TaskEdit = Partial<TaskOut> & { expected_version?: number; force?: boolean };
+
+export const updateTask = (taskId: number, fields: TaskEdit) =>
   api.patch<TaskOut>(`/tasks/${taskId}`, fields);
 
 export const createTask = (projectId: number, fields: Partial<TaskOut>) =>

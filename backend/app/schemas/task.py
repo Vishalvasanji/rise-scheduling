@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,6 +39,10 @@ class TaskUpdate(BaseModel):
     start_no_earlier_than: date | None = None
     external_ref: str | None = None
     procore_id: str | None = None
+    # Optimistic-lock control (not written as task data). `expected_version` is the
+    # version the editor last saw; `force` overwrites a detected conflict.
+    expected_version: int | None = None
+    force: bool = False
 
 
 class TaskOut(BaseModel):
@@ -65,5 +69,9 @@ class TaskOut(BaseModel):
     total_float: int | None
     free_float: int | None
     is_critical: bool
+    # Optimistic-lock + last-edit attribution.
+    version: int
+    updated_by: str | None
+    updated_at: datetime | None
     external_ref: str | None
     procore_id: str | None
