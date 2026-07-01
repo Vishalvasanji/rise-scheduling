@@ -11,6 +11,11 @@
   --text-3: #86868b;
   --separator: rgba(0, 0, 0, 0.08);
   --separator-strong: rgba(0, 0, 0, 0.12);
+  /* Excel-style spreadsheet grid: crisp gray gridlines, gray header band, and a
+     solid selected-cell outline (on-brand blue; flip to #107c41 for literal Excel green). */
+  --grid-line: #d4d4d7;
+  --grid-header-bg: #f3f3f4;
+  --cell-active: var(--blue);
   --blue: #0071e3;
   --blue-strong: #0060c8;
   --selection: rgba(0, 0, 0, 0.055);
@@ -467,26 +472,22 @@ button {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.task-grid__row:last-child {
-  border-bottom: none;
-}
-
-/* ---- Inline click-to-edit cells ---------------------------------------- */
-/* Looks like plain text until hover/focus, so any field "changes on click".
-   A roomy pill (not a tight box) keeps it from feeling cramped, and the focus
-   ring shows because editable cells set overflow: visible. */
+/* ---- Spreadsheet cells (flat, full-bleed) ------------------------------- */
+/* Each cell fills its whole gridlined box (no rounded pill). The active cell gets
+   a solid inset outline like Excel's selected-cell border — not a soft glow that
+   fades on blur. */
 .cell-input {
   width: 100%;
-  height: 28px;
+  height: 100%;
   box-sizing: border-box;
   font: inherit;
   color: inherit;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  padding: 0 6px;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
 }
 
 .cell-input::placeholder {
@@ -499,15 +500,14 @@ button {
 }
 
 .cell-input:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.035);
 }
 
 .cell-input:focus {
   outline: none;
   cursor: text;
   background: var(--surface);
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+  box-shadow: inset 0 0 0 2px var(--cell-active);
 }
 
 /* No number spinners — % / Days read as plain text. */
@@ -542,13 +542,13 @@ button {
   justify-content: center;
   height: 100%;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.1s ease;
 }
 
 .date-rest:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.035);
 }
 
 .date-edit {
@@ -914,37 +914,37 @@ button {
   font-weight: 600;
 }
 
-/* A cell holding an unsaved edit is tinted so the batch is easy to eyeball. */
+/* A cell holding an unsaved edit is tinted (full-cell, square) so it reads as a
+   filled spreadsheet cell and the batch is easy to eyeball. */
 .cell-input--dirty,
 .cell-select--dirty,
 .date-rest--dirty {
   background: rgba(0, 113, 227, 0.12);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .cell-select {
   width: 100%;
-  height: 28px;
+  height: 100%;
   box-sizing: border-box;
   font: inherit;
   color: inherit;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0 8px;
+  border: none;
+  border-radius: 0;
+  padding: 0 6px;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
 }
 
 .cell-select:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.035);
 }
 
 .cell-select:focus {
   outline: none;
   background: var(--surface);
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+  box-shadow: inset 0 0 0 2px var(--cell-active);
 }
 
 /* ---- Splash (loading / error) ------------------------------------------- */
