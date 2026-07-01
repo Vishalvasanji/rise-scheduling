@@ -1263,56 +1263,73 @@ button {
   padding: 8px 0;
 }
 
+/* Own card (not .state-card, which is narrow + centered and clipped the URL). */
 .connect-card {
-  max-width: 620px;
   width: 100%;
+  max-width: 680px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 28px 32px;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.connect-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.connect-card h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
 }
 
-.connect-field__label {
+/* Connector URL — shown in full (wraps), never truncated. */
+.connect-url {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--surface-sunken, #f6f6f8);
+  border: 1px solid var(--separator-strong);
+  border-radius: var(--radius-md, 10px);
+  padding: 14px 16px;
+}
+
+.connect-url__label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
 }
 
-.connect-field__row {
-  display: flex;
-  gap: 8px;
-}
-
-.connect-field__input {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--separator-strong);
-  border-radius: var(--radius-sm);
+.connect-url__value {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  background: var(--surface-sunken, #f6f6f8);
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-all;
+  white-space: normal;
+  user-select: all;
+  width: 100%;
 }
 
-.connect-warning {
-  margin: 0;
-  font-size: 12px;
-  color: var(--amber-ink);
+.connect-url__copy {
+  align-self: flex-start;
 }
 
 .connect-steps {
   margin: 6px 0 0;
-  padding-left: 20px;
+  padding-left: 22px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-muted);
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.connect-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
 }
 
 /* Source badge (Web / Claude) on activity rows. */
