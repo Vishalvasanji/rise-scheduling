@@ -269,39 +269,65 @@ button {
   gap: 4px;
 }
 
-/* Time-left reminders (next milestone, end date) sitting beside the icon controls. */
+/* Time-left reminders (next milestone, end date) sitting beside the icon controls.
+   Styled as intentional accent cards so the team's eye lands on them: soft blue
+   tint, a solid accent bar, an uppercase label, and an oversized countdown number. */
 .metrics {
   display: inline-flex;
-  align-items: flex-start;
-  gap: 22px;
+  align-items: stretch;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .metric {
   display: flex;
   flex-direction: column;
-  line-height: 1.3;
+  justify-content: center;
+  gap: 3px;
+  line-height: 1.25;
+  padding: 8px 16px;
+  background: rgba(0, 113, 227, 0.05);
+  border: 1px solid rgba(0, 113, 227, 0.16);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Card-level urgency: the tint, border, and accent bar all shift to match. */
+.metric--soon {
+  background: rgba(255, 159, 10, 0.08);
+  border-color: rgba(255, 159, 10, 0.28);
+  border-left-color: var(--amber);
+}
+
+.metric--over {
+  background: rgba(255, 59, 48, 0.08);
+  border-color: rgba(255, 59, 48, 0.3);
+  border-left-color: var(--red);
 }
 
 .metric__label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-3);
+  letter-spacing: 0.06em;
+  color: var(--text-2);
 }
 
 .metric__value {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text);
 }
 
 .metric__value--muted {
+  font-weight: 400;
   color: var(--text-3);
 }
 
 .metric__count {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
   color: var(--blue);
 }
 

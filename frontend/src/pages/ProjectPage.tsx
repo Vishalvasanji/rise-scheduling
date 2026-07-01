@@ -249,11 +249,20 @@ export function ProjectPage({
     return `${n} day${n === 1 ? "" : "s"} ${kind}`;
   };
   // Urgency accent: amber within a week, red once overdue.
-  const countClass = (date: string): string => {
+  const urgency = (date: string): "" | "--soon" | "--over" => {
     const n = daysBetween(todayIso, date);
-    if (n < 0) return "metric__count metric__count--over";
-    if (n <= 7) return "metric__count metric__count--soon";
-    return "metric__count";
+    if (n < 0) return "--over";
+    if (n <= 7) return "--soon";
+    return "";
+  };
+  const countClass = (date: string): string => {
+    const u = urgency(date);
+    return u ? `metric__count metric__count${u}` : "metric__count";
+  };
+  // The whole card glows amber/red so the reminder is impossible to miss.
+  const cardClass = (date: string | null | undefined): string => {
+    const u = date ? urgency(date) : "";
+    return u ? `metric metric${u}` : "metric";
   };
   const finish = source.project.planned_finish;
   const windowLabel = activeWindow
@@ -371,7 +380,7 @@ export function ProjectPage({
             ))}
         </div>
           <div className="metrics">
-            <div className="metric">
+            <div className={cardClass(nextMilestones[0]?.date)}>
               <span className="metric__label">
                 Next Milestone{nextMilestones.length > 1 ? "s" : ""}
               </span>
@@ -387,7 +396,7 @@ export function ProjectPage({
                 ))
               )}
             </div>
-            <div className="metric">
+            <div className={cardClass(finish)}>
               <span className="metric__label">End Date</span>
               {finish ? (
                 <span className="metric__value">
