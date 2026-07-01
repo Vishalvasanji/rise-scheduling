@@ -20,7 +20,7 @@ from app.api.routers import (
 )
 from app.config import get_settings
 from app.engine.errors import CircularDependencyError, DateConflictError, SchedulingError
-from app.services.errors import ConflictError
+from app.services.errors import BulkConflictError, ConflictError
 
 
 def create_app() -> FastAPI:
@@ -62,6 +62,17 @@ def create_app() -> FastAPI:
                 "current_version": exc.current_version,
                 "updated_by": exc.updated_by,
                 "updated_at": exc.updated_at.isoformat() if exc.updated_at else None,
+                "detail": str(exc),
+            },
+        )
+
+    @app.exception_handler(BulkConflictError)
+    async def _bulk_conflict_handler(_request: Request, exc: BulkConflictError):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "error": "bulk_version_conflict",
+                "conflicts": exc.conflicts,
                 "detail": str(exc),
             },
         )

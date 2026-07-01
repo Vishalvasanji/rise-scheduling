@@ -25,7 +25,7 @@ from app.repositories import (
     project_repo,
     task_repo,
 )
-from app.services.errors import ConflictError
+from app.services.errors import BulkConflictError, ConflictError
 
 # Fields a client is allowed to write on a task (everything else is computed).
 WRITABLE_TASK_FIELDS = {
@@ -172,6 +172,84 @@ def update_task(
         raise
 
 
+def bulk_update_tasks(
+    session: Session,
+    project_id: int,
+    edits: list[dict],
+    actor: str = "system",
+    source: str = "web",
+    force: bool = False,
+) -> ScheduleResult:
+    """Apply many task edits ("Save all" from the spreadsheet) atomically: mutate
+    every row, recalculate the whole project ONCE, then audit each change — all in
+    one transaction. Any engine rejection (cycle / date conflict) rolls the entire
+    batch back so a partial save can't happen.
+
+    Each edit is ``{task_id, fields, expected_version?}``. Unless ``force``, a row
+    whose current version no longer matches its ``expected_version`` is collected and
+    the whole batch is aborted with :class:`BulkConflictError` (nothing applied), so
+    the user can choose to overwrite.
+    """
+    by_id = {t.id: t for t in task_repo.list_for_project(session, project_id)}
+
+    # Validate + optimistic-lock check up front so a conflict aborts before any write.
+    prepared: list[tuple[int, dict, dict]] = []  # (task_id, clean, before)
+    conflicts: list[dict] = []
+    for edit in edits:
+        task_id = edit["task_id"]
+        existing = by_id.get(task_id)
+        if existing is None:
+            raise ValueError(f"Task {task_id} is not in project {project_id}")
+        expected = edit.get("expected_version")
+        if not force and expected is not None and existing.version != expected:
+            conflicts.append(
+                {
+                    "task_id": task_id,
+                    "name": existing.name,
+                    "current_version": existing.version,
+                    "updated_by": existing.updated_by,
+                    "updated_at": existing.updated_at.isoformat()
+                    if existing.updated_at
+                    else None,
+                }
+            )
+            continue
+        clean = {k: v for k, v in edit["fields"].items() if k in WRITABLE_TASK_FIELDS}
+        before = {k: getattr(existing, k) for k in clean}
+        prepared.append((task_id, clean, before))
+
+    if conflicts:
+        raise BulkConflictError(conflicts)
+
+    try:
+        now = datetime.now(UTC)
+        for task_id, clean, _before in prepared:
+            existing = by_id[task_id]
+            task_repo.update(
+                session,
+                task_id,
+                {
+                    **clean,
+                    "version": existing.version + 1,
+                    "updated_by": actor,
+                    "updated_at": now,
+                },
+            )
+        result = _recalc_and_persist(session, project_id)
+        for task_id, clean, before in prepared:
+            audit_repo.record(
+                session, actor=actor, action="update", entity_type="task",
+                entity_id=task_id, project_id=project_id,
+                summary=f"Updated task '{by_id[task_id].name}'",
+                before=before, after=clean, source=source,
+            )
+        session.commit()
+        return result
+    except Exception:
+        session.rollback()
+        raise
+
+
 def delete_task(
     session: Session,
     task_id: int,
@@ -272,7 +350,7 @@ def _fmt_lag(lag: int) -> str:
 
 # Re-export for callers that want the date type without importing datetime.
 __all__ = [
-    "create_task", "update_task", "delete_task",
+    "create_task", "update_task", "delete_task", "bulk_update_tasks",
     "create_dependency", "delete_dependency", "recalculate",
     "WRITABLE_TASK_FIELDS", "date",
 ]

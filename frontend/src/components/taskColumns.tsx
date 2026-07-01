@@ -115,10 +115,21 @@ export function useSharedNameWidth() {
   return { nameWidth, onResizeStart };
 }
 
+// Spreadsheet-style navigation: after committing a cell with Enter, move focus to
+// the next editable cell in document order (Tab already does this natively).
+export function focusNextCell(current: HTMLElement): void {
+  const cells = Array.from(
+    document.querySelectorAll<HTMLElement>(".cell-input:not([disabled])"),
+  );
+  const i = cells.indexOf(current);
+  if (i >= 0 && i + 1 < cells.length) cells[i + 1].focus();
+}
+
 // ---- Inline click-to-edit cell ------------------------------------------------
 // A borderless input that looks like plain text until hovered/focused, so every
 // editable field "changes on click" with no dropdowns or persistent boxes. Commits
-// on blur / Enter; Escape cancels. Caller parses the string value.
+// on blur / Enter (Enter also advances to the next cell); Escape cancels. Caller
+// parses the string value. `dirty` tints the cell while it holds an unsaved edit.
 
 export const CellInput: FC<{
   value: string;
@@ -128,15 +139,28 @@ export const CellInput: FC<{
   max?: number;
   align?: "left" | "center";
   ariaLabel?: string;
+  dirty?: boolean;
   style?: CSSProperties;
   onCommit: (value: string) => void;
-}> = ({ value, type = "text", placeholder, min, max, align = "left", ariaLabel, style, onCommit }) => {
+}> = ({
+  value,
+  type = "text",
+  placeholder,
+  min,
+  max,
+  align = "left",
+  ariaLabel,
+  dirty,
+  style,
+  onCommit,
+}) => {
   const [draft, setDraft] = useState(value);
   const cancel = useRef(false);
+  const advance = useRef(false);
   useEffect(() => setDraft(value), [value]);
   return (
     <input
-      className="cell-input"
+      className={dirty ? "cell-input cell-input--dirty" : "cell-input"}
       type={type}
       value={draft}
       min={min}
@@ -147,19 +171,25 @@ export const CellInput: FC<{
       onChange={(e) => setDraft(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        else if (e.key === "Escape") {
+        if (e.key === "Enter") {
+          advance.current = true;
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
           cancel.current = true;
           e.currentTarget.blur();
         }
       }}
-      onBlur={() => {
+      onBlur={(e) => {
         if (cancel.current) {
           cancel.current = false;
           setDraft(value);
           return;
         }
         if (draft.trim() !== value) onCommit(draft.trim());
+        if (advance.current) {
+          advance.current = false;
+          focusNextCell(e.currentTarget);
+        }
       }}
     />
   );
@@ -173,8 +203,9 @@ export const CellInput: FC<{
 export const DateInput: FC<{
   value: string | null;
   ariaLabel?: string;
+  dirty?: boolean;
   onCommit: (value: string) => void;
-}> = ({ value, ariaLabel, onCommit }) => {
+}> = ({ value, ariaLabel, dirty, onCommit }) => {
   const [editing, setEditing] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
@@ -192,7 +223,7 @@ export const DateInput: FC<{
   if (!editing) {
     return (
       <span
-        className="date-rest"
+        className={dirty ? "date-rest date-rest--dirty" : "date-rest"}
         onClick={(e) => {
           e.stopPropagation();
           setEditing(true);
@@ -281,6 +312,11 @@ export const LeadCells: FC<{
   // Marks the start as pinned by a "start no earlier than" constraint.
   startConstrained?: boolean;
   constraintLabel?: string;
+  // Per-field unsaved-edit tint (edit sessions).
+  dirtyName?: boolean;
+  dirtyFrom?: boolean;
+  dirtyTo?: boolean;
+  dirtyDays?: boolean;
   // Optional column(s) inserted right after Task (Task grid only, e.g. Trade).
   afterName?: ReactNode;
 }> = ({
@@ -302,6 +338,10 @@ export const LeadCells: FC<{
   onCommitTo,
   startConstrained,
   constraintLabel,
+  dirtyName,
+  dirtyFrom,
+  dirtyTo,
+  dirtyDays,
   afterName,
 }) => {
   const indent = 8 + depth * 14;
@@ -341,6 +381,7 @@ export const LeadCells: FC<{
           <CellInput
             value={name}
             ariaLabel="Task name"
+            dirty={dirtyName}
             style={{ paddingLeft: indent }}
             onCommit={onCommitName!}
           />
@@ -386,7 +427,7 @@ export const LeadCells: FC<{
           </span>
         )}
         {editFrom ? (
-          <DateInput value={fromStr} ariaLabel="Start date" onCommit={onCommitFrom!} />
+          <DateInput value={fromStr} ariaLabel="Start date" dirty={dirtyFrom} onCommit={onCommitFrom!} />
         ) : from ? (
           mmddyy(from)
         ) : (
@@ -404,7 +445,7 @@ export const LeadCells: FC<{
         }}
       >
         {editTo ? (
-          <DateInput value={toStr} ariaLabel="Finish date" onCommit={onCommitTo!} />
+          <DateInput value={toStr} ariaLabel="Finish date" dirty={dirtyTo} onCommit={onCommitTo!} />
         ) : to ? (
           mmddyy(to)
         ) : (
@@ -427,6 +468,7 @@ export const LeadCells: FC<{
             min={0}
             align="center"
             ariaLabel="Duration in days"
+            dirty={dirtyDays}
             onCommit={onCommitDays!}
           />
         ) : !isGroup && (isMilestone || !days) ? (

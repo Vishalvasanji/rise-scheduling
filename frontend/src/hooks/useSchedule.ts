@@ -6,9 +6,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  bulkUpdateTasks as apiBulkUpdate,
   deleteTask as apiDeleteTask,
   getSchedule,
   updateTask as apiUpdateTask,
+  type BulkEdit,
   type TaskEdit,
 } from "../api/schedule";
 import { ApiError } from "../api/client";
@@ -23,6 +25,18 @@ export interface ScheduleConflict {
   apply: () => Promise<void>; // overwrite (force) the pending edit
 }
 
+// One row that changed underneath a batched save (returned so the UI can prompt).
+export interface BulkConflict {
+  task_id: number;
+  name: string;
+  updated_by: string | null;
+  updated_at: string | null;
+}
+
+export type SaveResult =
+  | { ok: true }
+  | { ok: false; conflicts?: BulkConflict[] };
+
 function isEditingField(): boolean {
   const el = document.activeElement;
   if (!el) return false;
@@ -30,7 +44,7 @@ function isEditingField(): boolean {
   return tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA";
 }
 
-export function useSchedule(projectId: number | null) {
+export function useSchedule(projectId: number | null, paused = false) {
   const [schedule, setSchedule] = useState<ScheduleOut | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +53,10 @@ export function useSchedule(projectId: number | null) {
   // being re-created on every fetch.
   const scheduleRef = useRef<ScheduleOut | null>(null);
   scheduleRef.current = schedule;
+  // Ref so toggling pause doesn't re-run the mount effect (which would refetch and
+  // clobber the versions an in-progress edit session captured).
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   const refresh = useCallback(async () => {
     if (projectId == null) return;
@@ -58,7 +76,9 @@ export function useSchedule(projectId: number | null) {
   useEffect(() => {
     void refresh();
     const poll = async () => {
-      if (projectId == null || isEditingField()) return;
+      // Freeze the live refresh during an edit session so drafted rows and the
+      // versions we captured aren't overwritten mid-edit.
+      if (projectId == null || pausedRef.current || isEditingField()) return;
       try {
         const fresh = await getSchedule(projectId);
         setSchedule((prev) =>
@@ -156,6 +176,36 @@ export function useSchedule(projectId: number | null) {
     [refresh, reportError],
   );
 
+  // Apply a whole batch of edits at once ("Save all"). On success we adopt the
+  // recomputed schedule the server returns (one round trip). A 409 batch conflict
+  // resolves to the conflicting rows so the caller can offer to overwrite.
+  const saveBulk = useCallback(
+    async (edits: BulkEdit[], force = false): Promise<SaveResult> => {
+      if (projectId == null) return { ok: false };
+      try {
+        const fresh = await apiBulkUpdate(projectId, edits, force);
+        setSchedule(fresh);
+        setError(null);
+        return { ok: true };
+      } catch (e) {
+        if (
+          e instanceof ApiError &&
+          e.status === 409 &&
+          (e.body as Record<string, unknown> | undefined)?.error === "bulk_version_conflict"
+        ) {
+          const conflicts = ((e.body as Record<string, unknown>).conflicts ??
+            []) as BulkConflict[];
+          await refresh(); // show the latest while the user decides
+          return { ok: false, conflicts };
+        }
+        reportError(e);
+        await refresh();
+        return { ok: false };
+      }
+    },
+    [projectId, refresh, reportError],
+  );
+
   const dismissConflict = useCallback(() => {
     setConflict(null);
     void refresh();
@@ -170,5 +220,6 @@ export function useSchedule(projectId: number | null) {
     refresh,
     updateTask,
     removeTask,
+    saveBulk,
   };
 }

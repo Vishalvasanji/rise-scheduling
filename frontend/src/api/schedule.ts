@@ -21,6 +21,17 @@ export const updateTask = (taskId: number, fields: TaskEdit) =>
 export const createTask = (projectId: number, fields: Partial<TaskOut>) =>
   api.post<TaskOut>(`/projects/${projectId}/tasks`, fields);
 
+// One row's edits in a batched "Save all" (each `fields` carries its own
+// expected_version for optimistic locking).
+export interface BulkEdit {
+  task_id: number;
+  fields: TaskEdit;
+}
+
+// Apply a whole spreadsheet of edits at once → the recomputed schedule.
+export const bulkUpdateTasks = (projectId: number, edits: BulkEdit[], force = false) =>
+  api.post<ScheduleOut>(`/projects/${projectId}/tasks/bulk`, { edits, force });
+
 export const deleteTask = (taskId: number) => api.del(`/tasks/${taskId}`);
 
 export const createDependency = (

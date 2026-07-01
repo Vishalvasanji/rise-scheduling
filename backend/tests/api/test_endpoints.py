@@ -43,6 +43,51 @@ def test_health():
     assert client.get("/health").json() == {"status": "ok"}
 
 
+def test_bulk_update_endpoint(project_id):
+    a = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
+    b = client.post(f"/projects/{project_id}/tasks", json={"name": "B", "duration_days": 3}).json()
+
+    resp = client.post(
+        f"/projects/{project_id}/tasks/bulk",
+        json={
+            "edits": [
+                {"task_id": a["id"], "fields": {"name": "A2", "duration_days": 8}},
+                {"task_id": b["id"], "fields": {"trade": "Framing"}},
+            ]
+        },
+    )
+    assert resp.status_code == 200
+    tasks = {t["id"]: t for t in resp.json()["tasks"]}
+    assert tasks[a["id"]]["name"] == "A2" and tasks[a["id"]]["duration_days"] == 8
+    assert tasks[b["id"]]["trade"] == "Framing"
+
+
+def test_bulk_update_version_conflict(project_id):
+    a = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
+    # Bump the version out from under a stale editor.
+    client.patch(f"/tasks/{a['id']}", json={"duration_days": 6, "expected_version": 1})
+
+    resp = client.post(
+        f"/projects/{project_id}/tasks/bulk",
+        json={"edits": [{"task_id": a["id"], "fields": {"name": "X", "expected_version": 1}}]},
+    )
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["error"] == "bulk_version_conflict"
+    assert body["conflicts"][0]["task_id"] == a["id"]
+
+    # Forcing overwrites it.
+    forced = client.post(
+        f"/projects/{project_id}/tasks/bulk",
+        json={
+            "force": True,
+            "edits": [{"task_id": a["id"], "fields": {"name": "X", "expected_version": 1}}],
+        },
+    )
+    assert forced.status_code == 200
+    assert next(t for t in forced.json()["tasks"] if t["id"] == a["id"])["name"] == "X"
+
+
 def test_task_crud_and_schedule(project_id):
     a = client.post(f"/projects/{project_id}/tasks", json={"name": "A", "duration_days": 5}).json()
     b = client.post(f"/projects/{project_id}/tasks", json={"name": "B", "duration_days": 3}).json()

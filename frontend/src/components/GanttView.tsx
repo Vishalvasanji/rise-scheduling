@@ -18,6 +18,7 @@ import "gantt-task-react/dist/index.css";
 import type { ChangeType, DependencyOut, TaskOut } from "../types/schedule";
 import type { Row } from "../lib/rollup";
 import { mmddyy, parseLocalDate } from "../lib/dates";
+import { applyDraft, startFieldForEdit } from "../lib/task";
 import {
   LeadCells,
   LeadHeader,
@@ -80,8 +81,12 @@ interface Props {
   dependencies: DependencyOut[];
   collapsed: Set<string>;
   onToggle: (id: string) => void;
-  /** Drag/resize a bar → returns whether the edit was applied (false reverts the bar). */
-  onDateChange: (taskId: number, start: Date, end: Date) => Promise<boolean> | boolean;
+  /** Whether an edit session is active (the left-list cells edit into the draft). */
+  editMode?: boolean;
+  /** Per-task staged edits, overlaid on the list for display. */
+  draft?: Map<number, Partial<TaskOut>>;
+  /** Stage a change into the draft (does NOT hit the server until Save). */
+  onCell?: (taskId: number, fields: Partial<TaskOut>) => void;
   viewMode?: ViewMode;
   /** Pixel height for the chart's internal scroll viewport (0 = auto-grow). */
   height?: number;
@@ -98,6 +103,11 @@ interface GanttMeta {
   nameWidth: number;
   onResizeStart: (e: ReactMouseEvent) => void;
   onToggle: (id: string) => void;
+  // Edit-session state for the editable left list.
+  editMode: boolean;
+  draft: Map<number, Partial<TaskOut>>;
+  onCell: (taskId: number, fields: Partial<TaskOut>) => void;
+  taskById: Map<number, TaskOut>;
 }
 
 const MetaContext = createContext<GanttMeta | null>(null);
@@ -135,6 +145,13 @@ const GanttListTable: FC<{
       {tasks.map((t) => {
         const info = meta?.rowInfo.get(t.id);
         const isGroup = info?.isGroup ?? false;
+        // Leaf rows become editable during an edit session; the shared LeadCells
+        // stage into the same draft as the Tasks grid.
+        const base = isGroup ? undefined : meta?.taskById.get(Number(t.id));
+        const d = base ? meta?.draft.get(base.id) : undefined;
+        const editable = !!meta?.editMode && !!base;
+        const dt = base ? applyDraft(base, d) : undefined;
+        const has = (f: keyof TaskOut) => !!d && f in d;
         return (
           <div
             key={t.id}
@@ -144,16 +161,53 @@ const GanttListTable: FC<{
             <LeadCells
               nameWidth={nameW}
               wbs={info?.wbs ?? ""}
-              name={t.name}
+              name={dt?.name ?? t.name}
               building={info?.building}
-              from={t.start}
-              to={t.end}
-              days={info?.days ?? 0}
+              from={editable && dt ? dt.planned_start : t.start}
+              to={editable && dt ? dt.planned_finish : t.end}
+              days={editable && dt ? dt.duration_days : info?.days ?? 0}
               isMilestone={t.type === "milestone"}
               depth={info?.depth ?? 0}
               isGroup={isGroup}
               collapsed={info?.collapsed}
               onToggle={isGroup ? () => meta?.onToggle(t.id) : undefined}
+              startConstrained={
+                editable && dt ? !dt.is_milestone && !!dt.start_no_earlier_than : undefined
+              }
+              constraintLabel={
+                editable && dt?.start_no_earlier_than
+                  ? `Earliest start: ${mmddyy(dt.start_no_earlier_than)}`
+                  : undefined
+              }
+              dirtyName={has("name")}
+              dirtyFrom={has("actual_start") || has("start_no_earlier_than")}
+              dirtyTo={has("actual_finish")}
+              dirtyDays={has("duration_days")}
+              onCommitName={
+                editable && base
+                  ? (v) => {
+                      if (v) meta?.onCell(base.id, { name: v });
+                    }
+                  : undefined
+              }
+              onCommitFrom={
+                editable && base
+                  ? (v) => meta?.onCell(base.id, startFieldForEdit(base, v))
+                  : undefined
+              }
+              onCommitTo={
+                editable && base
+                  ? (v) => meta?.onCell(base.id, { actual_finish: v || null })
+                  : undefined
+              }
+              onCommitDays={
+                editable && base
+                  ? (v) => {
+                      const n = Number(v);
+                      if (Number.isFinite(n) && n >= 1) meta?.onCell(base.id, { duration_days: n });
+                    }
+                  : undefined
+              }
             />
           </div>
         );
@@ -220,7 +274,9 @@ export function GanttView({
   dependencies,
   collapsed,
   onToggle,
-  onDateChange,
+  editMode = false,
+  draft,
+  onCell,
   viewMode = ViewMode.Month,
   height = 0,
   changeStatus,
@@ -276,8 +332,8 @@ export function GanttView({
           progress: Math.round(t.percent_complete),
           dependencies: predecessorsOf.get(String(t.id)),
           displayOrder: i + 1,
-          // Read-only in review mode; a completed task's dates are historical.
-          isDisabled: review || t.status === "complete",
+          // Bars are view-only — rescheduling happens in the editable task list.
+          isDisabled: true,
           styles: change
             ? CHANGE_STYLE[change]
             : {
@@ -293,9 +349,15 @@ export function GanttView({
   }, [rows, dependencies, collapsed, changeStatus, review]);
 
   // Per-row metadata + dependency labels for the custom list and tooltip.
-  const meta = useMemo<Omit<GanttMeta, "nameWidth" | "onResizeStart" | "onToggle">>(() => {
+  const meta = useMemo<
+    Omit<GanttMeta, "nameWidth" | "onResizeStart" | "onToggle" | "editMode" | "draft" | "onCell">
+  >(() => {
     const nameById = new Map<string, string>();
-    for (const t of tasks) nameById.set(String(t.id), t.name);
+    const taskById = new Map<number, TaskOut>();
+    for (const t of tasks) {
+      nameById.set(String(t.id), t.name);
+      taskById.set(t.id, t);
+    }
 
     const rowInfo = new Map<string, RowInfo>();
     for (const r of rows) {
@@ -328,12 +390,20 @@ export function GanttView({
       (pred.get(s) ?? pred.set(s, []).get(s)!).push(nameById.get(p) ?? p);
       (succ.get(p) ?? succ.set(p, []).get(p)!).push(nameById.get(s) ?? s);
     }
-    return { rowInfo, pred, succ };
+    return { rowInfo, pred, succ, taskById };
   }, [rows, tasks, dependencies, collapsed]);
 
   const metaValue = useMemo<GanttMeta>(
-    () => ({ ...meta, nameWidth, onResizeStart, onToggle }),
-    [meta, nameWidth, onResizeStart, onToggle],
+    () => ({
+      ...meta,
+      nameWidth,
+      onResizeStart,
+      onToggle,
+      editMode: editMode && !review,
+      draft: draft ?? new Map(),
+      onCell: onCell ?? (() => {}),
+    }),
+    [meta, nameWidth, onResizeStart, onToggle, editMode, review, draft, onCell],
   );
 
   if (ganttTasks.length === 0) {
@@ -350,11 +420,6 @@ export function GanttView({
         tasks={ganttTasks}
         viewMode={viewMode}
         todayColor="#e5484d"
-        onDateChange={(task: GanttTask) => {
-          // Groups and review mode are read-only; returning false reverts the bar.
-          if (review || task.id.startsWith("g:")) return false;
-          return onDateChange(Number(task.id), task.start, task.end);
-        }}
         onExpanderClick={(task: GanttTask) => onToggle(task.id)}
         listCellWidth={`${listWidth}px`}
         columnWidth={columnWidth}
