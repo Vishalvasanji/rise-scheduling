@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     # Public URL of the hosted MCP (Streamable HTTP) service, shown in the
     # "Connect Claude" panel and used as the connector's resource server URL.
     mcp_public_url: str = "https://rise-schedule-hub-mcp.onrender.com/mcp"
+    # Origin of the MCP service — the OAuth issuer, where /authorize, /token,
+    # /oauth/login etc. are mounted (mcp_public_url without the /mcp path).
+    mcp_issuer_url: str = "https://rise-schedule-hub-mcp.onrender.com"
+    # TTL of the OAuth access token issued to the connector (short; refreshed).
+    mcp_access_token_ttl_minutes: int = 60
 
     # Schedule anchor for the pilot (P1 start date).
     pilot_anchor_date: date = date(2026, 6, 22)

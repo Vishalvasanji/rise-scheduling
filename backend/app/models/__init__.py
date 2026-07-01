@@ -5,6 +5,7 @@ from app.models.audit_log import AuditLog
 from app.models.dependency import Dependency
 from app.models.enums import DependencyTypeEnum, TaskStatus
 from app.models.milestone import Milestone
+from app.models.oauth import OAuthAuthCode, OAuthClient, OAuthRefreshToken
 from app.models.project import Project
 from app.models.resource import Resource
 from app.models.task import Task
@@ -17,6 +18,9 @@ __all__ = [
     "DependencyTypeEnum",
     "TaskStatus",
     "Milestone",
+    "OAuthAuthCode",
+    "OAuthClient",
+    "OAuthRefreshToken",
     "Project",
     "Resource",
     "Task",

@@ -40,6 +40,17 @@ def authenticate(session: Session, email: str, password: str) -> str:
     return backend.issue_token(subject=user.email, claims={"role": user.role})
 
 
+def issue_mcp_access_token(email: str, ttl_minutes: int | None = None) -> str:
+    """A short-lived OAuth access token for the Claude.ai connector: the same
+    ``scope: "mcp"`` JWT the MCP server verifies, so per-user scoping/attribution are
+    unchanged. Minted by the OAuth token exchange; refreshed via the refresh token."""
+    backend = get_auth_backend()
+    ttl = ttl_minutes if ttl_minutes is not None else get_settings().mcp_access_token_ttl_minutes
+    return backend.issue_token(
+        subject=email, claims={"scope": "mcp"}, ttl_minutes=ttl
+    )
+
+
 def issue_connector_token(user: User) -> str:
     """Mint a long-lived token for a user's Claude.ai custom connector. It carries
     a ``scope: "mcp"`` claim so the MCP server can require it, and reuses the login
