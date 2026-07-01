@@ -90,10 +90,11 @@ export function useSchedule(projectId: number | null) {
     }
   }, []);
 
-  // Run a task edit with optimistic locking. On a 409 we stage a conflict the UI
-  // resolves (overwrite → retry with force, or cancel → reconcile).
+  // Run a task edit with optimistic locking. Resolves `true` if the edit was applied,
+  // `false` if it failed or hit a conflict — so callers (e.g. the Gantt) can revert.
+  // On a 409 we stage a conflict the UI resolves (overwrite → retry with force).
   const runEdit = useCallback(
-    async (taskId: number, fields: TaskEdit) => {
+    async (taskId: number, fields: TaskEdit): Promise<boolean> => {
       const task = scheduleRef.current?.tasks.find((t) => t.id === taskId);
       const send = (force: boolean) =>
         apiUpdateTask(taskId, { ...fields, expected_version: task?.version, force });
@@ -101,6 +102,7 @@ export function useSchedule(projectId: number | null) {
         await send(false);
         setError(null);
         await refresh();
+        return true;
       } catch (e) {
         if (
           e instanceof ApiError &&
@@ -129,6 +131,7 @@ export function useSchedule(projectId: number | null) {
           reportError(e);
           await refresh();
         }
+        return false;
       }
     },
     [refresh, reportError],
