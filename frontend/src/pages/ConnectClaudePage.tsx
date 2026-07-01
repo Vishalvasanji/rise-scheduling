@@ -1,12 +1,12 @@
-// "Connect Claude" panel: shows the MCP connector URL to paste into Claude.ai. Claude
-// runs an OAuth flow against it and the user signs in with their scheduling-hub account,
-// so chat changes are recorded under their name and limited to the projects they're
-// assigned — no token to copy or store.
+// "Connect Claude" panel: shows the MCP connector URL to paste into Claude.ai, with
+// step-by-step instructions. Claude runs an OAuth flow against the URL and the user signs
+// in with their scheduling-hub account, so chat changes are recorded under their name and
+// limited to the projects they're assigned — no token to copy or store.
 
 import { useEffect, useState } from "react";
 import { getConnectorUrl } from "../api/auth";
 
-function CopyField({ label, value }: { label: string; value: string }) {
+function ConnectorUrl({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -14,18 +14,16 @@ function CopyField({ label, value }: { label: string; value: string }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard unavailable — the field is selectable as a fallback */
+      /* clipboard unavailable — the URL is fully shown and selectable as a fallback */
     }
   };
   return (
-    <div className="connect-field">
-      <label className="connect-field__label">{label}</label>
-      <div className="connect-field__row">
-        <input className="connect-field__input" readOnly value={value} onFocus={(e) => e.target.select()} />
-        <button className="btn" type="button" onClick={copy}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
+    <div className="connect-url">
+      <div className="connect-url__label">Connector URL</div>
+      <code className="connect-url__value">{value}</code>
+      <button className="btn connect-url__copy" type="button" onClick={copy}>
+        {copied ? "Copied ✓" : "Copy URL"}
+      </button>
     </div>
   );
 }
@@ -42,24 +40,57 @@ export function ConnectClaudePage() {
 
   return (
     <div className="connect-page">
-      <div className="state-card connect-card">
-        <h2>Connect Claude</h2>
+      <div className="connect-card">
+        <h2>Connect Claude to your schedule</h2>
         <p className="muted">
-          Use the RISE schedule from Claude.ai chat. Add the connector below, then sign in
-          with your RISE Schedule Hub email and password when Claude prompts you. Anything
-          you change through chat is recorded under your name and limited to the projects
-          you're assigned.
+          Follow these steps once to use RISE from Claude chat. Anything you change through
+          chat is saved under your name and limited to the projects you're assigned.
         </p>
 
         {error && <div className="error-banner">{error}</div>}
-        {url && <CopyField label="Connector URL" value={url} />}
+        {url && <ConnectorUrl value={url} />}
 
         <ol className="connect-steps">
-          <li>In Claude.ai, open <strong>Settings → Connectors → Add custom connector</strong>.</li>
-          <li>Paste the <strong>Connector URL</strong> above as the Remote MCP server URL, and leave the OAuth fields blank.</li>
-          <li>Click <strong>Add</strong> — Claude opens a RISE sign-in page.</li>
-          <li>Sign in with your <strong>scheduling-hub email &amp; password</strong>, then start a chat and ask about your schedule.</li>
+          <li>
+            Open <strong>claude.ai</strong> in your web browser and sign in to your Claude
+            account.
+          </li>
+          <li>
+            In the menu on the left, click <strong>Customize</strong>, then click{" "}
+            <strong>Connectors</strong>.
+          </li>
+          <li>
+            Next to <strong>Connectors</strong>, click the <strong>+</strong> button, then
+            click <strong>Add custom connector</strong>.
+          </li>
+          <li>
+            In the <strong>Name</strong> box, type <strong>RISE Schedule</strong> (any name
+            is fine).
+          </li>
+          <li>
+            In the <strong>Remote MCP server URL</strong> box, paste the{" "}
+            <strong>Connector URL</strong> from above (use the <strong>Copy URL</strong>{" "}
+            button). Leave everything under <strong>Advanced settings</strong> (the OAuth
+            boxes) empty.
+          </li>
+          <li>
+            Click <strong>Add</strong>. A <strong>RISE Schedule Hub sign-in</strong> window
+            will pop up.
+          </li>
+          <li>
+            Enter the <strong>same email and password you use to sign in here</strong>, then
+            click <strong>Sign in &amp; authorize</strong>.
+          </li>
+          <li>
+            You're connected. Start a new chat in Claude and ask about your schedule — for
+            example, <em>"What's happening on Lake Jackson this week?"</em>
+          </li>
         </ol>
+
+        <p className="connect-hint muted">
+          Only need to do this once. To reconnect later, repeat steps 1–3 and pick RISE from
+          your connectors.
+        </p>
       </div>
     </div>
   );
