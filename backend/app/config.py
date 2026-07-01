@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     # Auth (pilot only, behind one swappable module).
     auth_mode: str = "jwt"
     auth_secret: str = "change-me-in-real-deployments-this-is-a-pilot-dummy-secret"
-    auth_token_ttl_minutes: int = 720
+    # Keep users signed in for 30 days so they don't have to log in again often.
+    auth_token_ttl_minutes: int = 43_200  # 30 days
     # Long-lived token a user pastes into the Claude.ai custom connector. A year so
     # they don't have to re-mint constantly; regenerate to rotate.
     connector_token_ttl_minutes: int = 525_600  # 365 days
