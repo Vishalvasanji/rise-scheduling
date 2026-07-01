@@ -41,6 +41,14 @@ export function mmddyy(value: string | Date): string {
   return `${mm}/${dd}/${yy}`;
 }
 
+// Calendar days from `a` to `b` (b − a); negative when b is before a. Used for
+// the toolbar "days away" / "days left" countdowns.
+export function daysBetween(aIso: string, bIso: string): number {
+  const a = parseLocalDate(aIso);
+  const b = parseLocalDate(bIso);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
 // Inclusive working-day count (Mon–Fri) between two dates, matching the backend
 // calendar (Mon–Fri, no holidays in the pilot). Used for summary-row durations.
 export function businessDays(start: string | Date, finish: string | Date): number {

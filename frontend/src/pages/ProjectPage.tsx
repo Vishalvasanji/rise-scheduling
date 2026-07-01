@@ -10,7 +10,7 @@ import type { BulkConflict } from "../hooks/useSchedule";
 import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
-import { addDaysISO, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
+import { addDaysISO, daysBetween, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
 import type { BulkEdit } from "../api/schedule";
 import type { ChangeType, TaskOut } from "../types/schedule";
 
@@ -218,6 +218,19 @@ export function ProjectPage({
       ).sort((a, b) => a.localeCompare(b)),
     [tasks],
   );
+  // Toolbar reminders (independent of the active window / collapse): the next
+  // upcoming milestone(s) and the project end date, both counted in calendar days
+  // from today so the team always sees how much time is left.
+  const nextMilestones = useMemo(() => {
+    const upcoming = (source?.tasks ?? [])
+      .filter((t) => t.is_milestone && t.status !== "complete")
+      .map((t) => ({ t, date: t.planned_start ?? t.planned_finish }))
+      .filter((m): m is { t: TaskOut; date: string } => !!m.date && m.date >= todayIso)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const nextDate = upcoming[0]?.date;
+    return nextDate ? upcoming.filter((m) => m.date === nextDate) : [];
+  }, [source, todayIso]);
+
   const allCollapsed = groupIds.length > 0 && groupIds.every((id) => collapsed.has(id));
   const expandAll = useCallback(() => setCollapsed(new Set()), []);
   const collapseAll = useCallback(() => setCollapsed(new Set(groupIds)), [groupIds]);
@@ -226,8 +239,23 @@ export function ProjectPage({
   if (!schedule || !source) return <p className="muted">No schedule.</p>;
 
   const dependencies = source.dependencies;
-  const criticalCount = (viewTasks ?? source.tasks).filter((t) => t.is_critical).length;
   const hasGroups = groupIds.length > 0;
+
+  // "n days away/left" phrasing shared by both metrics (calendar days).
+  const countLabel = (date: string, kind: "away" | "left"): string => {
+    const n = daysBetween(todayIso, date);
+    if (n === 0) return "today";
+    if (n < 0) return `overdue by ${-n} day${n === -1 ? "" : "s"}`;
+    return `${n} day${n === 1 ? "" : "s"} ${kind}`;
+  };
+  // Urgency accent: amber within a week, red once overdue.
+  const countClass = (date: string): string => {
+    const n = daysBetween(todayIso, date);
+    if (n < 0) return "metric__count metric__count--over";
+    if (n <= 7) return "metric__count metric__count--soon";
+    return "metric__count";
+  };
+  const finish = source.project.planned_finish;
   const windowLabel = activeWindow
     ? range === "today"
       ? mmddyy(activeWindow.start)
@@ -285,6 +313,7 @@ export function ProjectPage({
       )}
 
       <div className="toolbar">
+        <div className="toolbar__left">
         <div className="grid-tools">
           {hasGroups && (
             <>
@@ -295,7 +324,7 @@ export function ProjectPage({
                 onClick={expandAll}
                 disabled={collapsed.size === 0}
               >
-                ⊞
+                ⇊
               </button>
               <button
                 className="icon-btn"
@@ -304,7 +333,7 @@ export function ProjectPage({
                 onClick={collapseAll}
                 disabled={allCollapsed}
               >
-                ⊟
+                ⇈
               </button>
             </>
           )}
@@ -341,19 +370,41 @@ export function ProjectPage({
               </button>
             ))}
         </div>
-        <div className="toolbar__right">
-          {tab === "gantt" && (
-            <div className="legend">
-              {review ? (
-                <>
-                  <span className="lg-new">New</span>
-                  <span className="lg-moved">Moved</span>
-                </>
+          <div className="metrics">
+            <div className="metric">
+              <span className="metric__label">
+                Next Milestone{nextMilestones.length > 1 ? "s" : ""}
+              </span>
+              {nextMilestones.length === 0 ? (
+                <span className="metric__value metric__value--muted">None upcoming</span>
               ) : (
-                <span className="lg-critical">Critical ({criticalCount})</span>
+                nextMilestones.map((m) => (
+                  <span key={m.t.id} className="metric__value">
+                    {m.t.building ? `${m.t.building}, ` : ""}
+                    {m.t.name}, {mmddyy(m.date)},{" "}
+                    <span className={countClass(m.date)}>{countLabel(m.date, "away")}</span>
+                  </span>
+                ))
               )}
-              <span className="lg-float">Float</span>
-              <span className="lg-ms">◆ Milestone</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">End Date</span>
+              {finish ? (
+                <span className="metric__value">
+                  {mmddyy(finish)} ·{" "}
+                  <span className={countClass(finish)}>{countLabel(finish, "left")}</span>
+                </span>
+              ) : (
+                <span className="metric__value metric__value--muted">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="toolbar__right">
+          {tab === "gantt" && review && (
+            <div className="legend">
+              <span className="lg-new">New</span>
+              <span className="lg-moved">Moved</span>
             </div>
           )}
           <div className="range-control">
