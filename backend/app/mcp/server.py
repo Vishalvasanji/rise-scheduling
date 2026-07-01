@@ -11,30 +11,41 @@ import os
 import sys
 from typing import Any
 
-from mcp.server.auth.settings import AuthSettings
+from mcp.server.auth.settings import (
+    AuthSettings,
+    ClientRegistrationOptions,
+    RevocationOptions,
+)
 from mcp.server.fastmcp import FastMCP
 
 from app.config import get_settings
 from app.mcp import tools
-from app.mcp.auth import JWTTokenVerifier
+from app.mcp.oauth import SchedulingHubOAuthProvider
+from app.mcp.oauth_login import oauth_login
 
-# Decide the transport at import time so HTTP can be constructed with bearer auth.
+# Decide the transport at import time so HTTP can be constructed with OAuth.
 # Default to stdio (local Claude Desktop / Claude Code subprocess); --http (or
 # MCP_TRANSPORT=http) serves Streamable HTTP at /mcp for the hosted Render connector.
 _USE_HTTP = "--http" in sys.argv or os.environ.get("MCP_TRANSPORT") == "http"
 
-# Over HTTP every request must carry a per-user connector token (see app/mcp/auth.py),
-# so chat changes are attributed to the real user and scoped to their projects. Stdio
-# is a trusted local subprocess and stays unauthenticated.
+# Over HTTP the server is a self-hosted OAuth 2.1 authorization server: the Claude.ai
+# connector runs the OAuth flow, the user signs in with their scheduling-hub account,
+# and the issued access token is a per-user scope:"mcp" JWT (see app/mcp/oauth.py). So
+# chat changes are attributed to the real user and scoped to their projects. Stdio is a
+# trusted local subprocess and stays unauthenticated.
 _auth_kwargs: dict[str, Any] = {}
 if _USE_HTTP:
-    _mcp_url = get_settings().mcp_public_url
+    _settings = get_settings()
     _auth_kwargs = {
-        "token_verifier": JWTTokenVerifier(),
+        "auth_server_provider": SchedulingHubOAuthProvider(),
         "auth": AuthSettings(
-            issuer_url=_mcp_url,
-            resource_server_url=_mcp_url,
+            issuer_url=_settings.mcp_issuer_url,
+            resource_server_url=_settings.mcp_public_url,
             required_scopes=["mcp"],
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True, valid_scopes=["mcp"], default_scopes=["mcp"]
+            ),
+            revocation_options=RevocationOptions(enabled=True),
         ),
     }
 
@@ -46,6 +57,10 @@ mcp = FastMCP(
     port=int(os.environ.get("PORT", "8001")),
     **_auth_kwargs,
 )
+
+# The OAuth sign-in page (the authorize step redirects the user here). Harmless on
+# stdio (only the HTTP app serves routes).
+mcp.custom_route("/oauth/login", methods=["GET", "POST"])(oauth_login)
 
 
 @mcp.tool()

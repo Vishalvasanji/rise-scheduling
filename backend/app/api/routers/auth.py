@@ -30,10 +30,18 @@ def login(payload: LoginRequest, session: SessionDep):
     return TokenResponse(access_token=token)
 
 
+@router.get("/connector-url")
+def connector_url(_user: CurrentUserDep):
+    """The MCP URL to paste into Claude.ai's custom connector. Claude runs the OAuth
+    flow against it and the user signs in with their scheduling-hub account — no token
+    to copy."""
+    return {"connector_url": get_settings().mcp_public_url}
+
+
 @router.post("/connector-token", response_model=ConnectorTokenResponse)
 def connector_token(user: CurrentUserDep):
-    """Mint this user's long-lived Claude.ai connector token (Bearer). Their chat
-    changes will be attributed to them and scoped to their assigned projects."""
+    """Mint this user's long-lived connector token (Bearer) — for local/stdio MCP use
+    (e.g. Claude Desktop). The hosted Claude.ai connector uses OAuth instead."""
     return ConnectorTokenResponse(
         token=auth_service.issue_connector_token(user),
         connector_url=get_settings().mcp_public_url,

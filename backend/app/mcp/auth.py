@@ -19,31 +19,36 @@ from app.repositories import user_repo
 _SCOPE = "mcp"
 
 
+def decode_mcp_token(token: str) -> AccessToken | None:
+    """Verify a connector JWT (scope "mcp") and resolve it to the owning user, or
+    None. Shared by the bearer verifier (stdio/local) and the OAuth provider's
+    ``load_access_token`` (the hosted Claude.ai connector)."""
+    try:
+        claims = get_auth_backend().verify_token(token)
+    except AuthError:
+        return None
+    if claims.get("scope") != _SCOPE:
+        return None
+    email = claims.get("sub")
+    if not email:
+        return None
+    with session_scope() as session:
+        user = user_repo.get_by_email(session, email)
+    if user is None:
+        return None
+    return AccessToken(
+        token=token,
+        client_id=email,
+        scopes=[_SCOPE],
+        subject=email,
+        expires_at=claims.get("exp"),
+        claims={"role": user.role},
+    )
+
+
 class JWTTokenVerifier(TokenVerifier):
     """Verify a connector JWT and resolve it to the owning user (or reject)."""
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        try:
-            claims = get_auth_backend().verify_token(token)
-        except AuthError:
-            return None  # FastMCP's RequireAuthMiddleware turns None into a 401.
-
-        # Must be a connector-scoped token, not just any login token.
-        if claims.get("scope") != _SCOPE:
-            return None
-
-        email = claims.get("sub")
-        if not email:
-            return None
-        with session_scope() as session:
-            user = user_repo.get_by_email(session, email)
-        if user is None:
-            return None
-
-        return AccessToken(
-            token=token,
-            client_id=email,
-            scopes=[_SCOPE],
-            subject=email,
-            claims={"role": user.role},
-        )
+        # None → FastMCP's RequireAuthMiddleware returns a 401.
+        return decode_mcp_token(token)
