@@ -87,6 +87,36 @@ def test_member_sees_only_assigned_and_is_blocked(admin_token):
     assert client.get("/users", headers=h).status_code == 200
 
 
+def test_users_list_tolerates_legacy_invalid_email(admin_token):
+    """A stored user with a now-invalid domain (e.g. the pilot's `.local` demo) must
+    not 500 the whole Users list — UserOut serializes email as a plain str."""
+    with session_scope() as s:
+        if auth_service.get_by_email(s, "legacy@rise.local") is None:
+            # Bypasses input EmailStr validation the same way the old seed did.
+            auth_service.create_user(
+                s, email="legacy@rise.local", password="pw", role="member"
+            )
+    r = client.get("/users", headers=_hdr(admin_token))
+    assert r.status_code == 200
+    assert any(u["email"] == "legacy@rise.local" for u in r.json())
+
+
+def test_repair_demo_email_heals_legacy_row():
+    from app.seed import admin_user
+
+    with session_scope() as s:
+        if auth_service.get_by_email(s, "demo@rise.local") is None:
+            auth_service.create_user(
+                s, email="demo@rise.local", password="pw", role="leadership"
+            )
+        assert admin_user.repair_demo_email(s) is True
+        assert auth_service.get_by_email(s, "demo@rise.local") is None
+        fixed = auth_service.get_by_email(s, "demo@example.com")
+        assert fixed is not None and fixed.role == "member"
+        # No legacy row left → no-op.
+        assert admin_user.repair_demo_email(s) is False
+
+
 def test_admin_can_reassign_projects(admin_token):
     h = _hdr(admin_token)
     p = client.post(

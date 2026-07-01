@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Plain str: login is a lookup by address, and a legacy account with a now-invalid
+    # domain (e.g. the pilot demo `@rise.local`) must still be able to sign in.
+    email: str
     password: str
 
 
@@ -25,7 +27,8 @@ class ConnectorTokenResponse(BaseModel):
 class MeResponse(BaseModel):
     """The signed-in user's identity + access, for the frontend gate."""
 
-    email: EmailStr
+    # Plain str: output of a stored identity (see UserOut) — never re-validate here.
+    email: str
     full_name: str | None = None
     role: str
     is_admin: bool

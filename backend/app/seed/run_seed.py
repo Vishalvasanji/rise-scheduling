@@ -22,17 +22,19 @@ def main() -> None:
             print("Projects already exist; skipping seed (--if-empty).")
             return
         project_ids = seed_all(session)
-        # A demo login for the pilot (dummy credentials only).
-        if auth_service.get_by_email(session, "demo@rise.local") is None:
+        # A demo login for the pilot (dummy credentials only). Use a valid domain —
+        # `.local` is a reserved TLD that EmailStr rejects (see admin_user for the
+        # repair of any legacy `demo@rise.local` row).
+        if auth_service.get_by_email(session, "demo@example.com") is None:
             auth_service.create_user(
                 session,
-                email="demo@rise.local",
+                email="demo@example.com",
                 password="demo-pilot-password",
                 full_name="Demo User",
-                role="leadership",
+                role="member",
             )
         print(f"Seeded {len(project_ids)} projects: {project_ids}")
-        print("Demo login: demo@rise.local / demo-pilot-password")
+        print("Demo login: demo@example.com / demo-pilot-password")
 
 
 if __name__ == "__main__":
