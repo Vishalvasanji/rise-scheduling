@@ -17,6 +17,8 @@ from mcp.server.auth.settings import (
     RevocationOptions,
 )
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from app.config import get_settings
 from app.mcp import tools
@@ -61,6 +63,15 @@ mcp = FastMCP(
 # The OAuth sign-in page (the authorize step redirects the user here). Harmless on
 # stdio (only the HTTP app serves routes).
 mcp.custom_route("/oauth/login", methods=["GET", "POST"])(oauth_login)
+
+
+async def health(_request: Request) -> JSONResponse:
+    """Cheap liveness probe (no DB) so Render can health-check the MCP dyno and the
+    web app can wake it before the user connects — /mcp itself refuses a plain GET."""
+    return JSONResponse({"status": "ok"})
+
+
+mcp.custom_route("/health", methods=["GET"])(health)
 
 
 @mcp.tool()

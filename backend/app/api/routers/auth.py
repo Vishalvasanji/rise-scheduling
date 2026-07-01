@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUserDep, SessionDep
@@ -43,6 +44,23 @@ def connector_url(_user: CurrentUserDep):
     flow against it and the user signs in with their scheduling-hub account — no token
     to copy."""
     return {"connector_url": get_settings().mcp_public_url}
+
+
+@router.get("/connector-warm")
+async def connector_warm(_user: CurrentUserDep):
+    """Wake the MCP connector dyno before the user connects from Claude. The MCP
+    service is a Render free web service that sleeps when idle, so the first
+    connection cold-starts and can time out. Hitting its cheap /health route from
+    the web app warms it; the browser calls our own API to avoid CORS. Returns
+    ``{"ready": true}`` once the MCP server answers (the request may block for the
+    duration of a cold start)."""
+    url = get_settings().mcp_issuer_url.rstrip("/") + "/health"
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.get(url)
+    except httpx.HTTPError:
+        return {"ready": False}
+    return {"ready": resp.status_code == 200}
 
 
 @router.post("/connector-token", response_model=ConnectorTokenResponse)
