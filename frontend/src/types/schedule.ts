@@ -70,12 +70,14 @@ export interface ScheduleOut {
 export interface AuditEntry {
   id: number;
   actor: string;
+  actor_name: string | null; // resolved full name, when the actor is a known user
   source: string; // web | chat (chat = made via the Claude.ai connector)
   action: string; // create | update | delete
   entity_type: string; // task | dependency
   entity_id: number | null;
   project_id: number | null;
   summary: string | null;
+  detail: string | null; // descriptive field-level change ("… → …"), when available
   created_at: string;
 }
 

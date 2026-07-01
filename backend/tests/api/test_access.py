@@ -117,6 +117,24 @@ def test_repair_demo_email_heals_legacy_row():
         assert admin_user.repair_demo_email(s) is False
 
 
+def test_activity_shows_name_and_descriptive_change(admin_token):
+    h = _hdr(admin_token)
+    pid = client.post(
+        "/projects", json={"name": "Act", "anchor_date": ANCHOR}, headers=h
+    ).json()["id"]
+    t = client.post(
+        f"/projects/{pid}/tasks", json={"name": "Framing", "duration_days": 5}, headers=h
+    ).json()
+    client.patch(f"/tasks/{t['id']}", json={"duration_days": 8}, headers=h)
+
+    rows = client.get(f"/projects/{pid}/audit", headers=h).json()
+    upd = next(r for r in rows if r["action"] == "update" and r["entity_id"] == t["id"])
+    # Who resolves to the admin's full name; the change names the field diff.
+    assert upd["actor_name"] == "Admin Two"
+    assert upd["detail"] == "Updated task 'Framing': Duration 5d → 8d"
+    assert upd["source"] == "web"
+
+
 def test_admin_can_reassign_projects(admin_token):
     h = _hdr(admin_token)
     p = client.post(
