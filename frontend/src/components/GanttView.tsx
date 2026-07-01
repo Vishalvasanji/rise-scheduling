@@ -80,7 +80,8 @@ interface Props {
   dependencies: DependencyOut[];
   collapsed: Set<string>;
   onToggle: (id: string) => void;
-  onDateChange: (taskId: number, start: Date) => void;
+  /** Drag/resize a bar → returns whether the edit was applied (false reverts the bar). */
+  onDateChange: (taskId: number, start: Date, end: Date) => Promise<boolean> | boolean;
   viewMode?: ViewMode;
   /** Pixel height for the chart's internal scroll viewport (0 = auto-grow). */
   height?: number;
@@ -275,7 +276,8 @@ export function GanttView({
           progress: Math.round(t.percent_complete),
           dependencies: predecessorsOf.get(String(t.id)),
           displayOrder: i + 1,
-          isDisabled: review, // review mode is read-only (no drag-to-reschedule)
+          // Read-only in review mode; a completed task's dates are historical.
+          isDisabled: review || t.status === "complete",
           styles: change
             ? CHANGE_STYLE[change]
             : {
@@ -347,9 +349,11 @@ export function GanttView({
       <Gantt
         tasks={ganttTasks}
         viewMode={viewMode}
+        todayColor="#e5484d"
         onDateChange={(task: GanttTask) => {
-          if (review) return; // proposed schedule is read-only
-          if (!task.id.startsWith("g:")) onDateChange(Number(task.id), task.start);
+          // Groups and review mode are read-only; returning false reverts the bar.
+          if (review || task.id.startsWith("g:")) return false;
+          return onDateChange(Number(task.id), task.start, task.end);
         }}
         onExpanderClick={(task: GanttTask) => onToggle(task.id)}
         listCellWidth={`${listWidth}px`}

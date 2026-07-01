@@ -204,6 +204,14 @@ function Line({
                 )
         }
         onCommitTo={readOnly ? undefined : (v) => onUpdate(task.id, { actual_finish: v || null })}
+        onCommitDays={
+          readOnly
+            ? undefined
+            : (v) => {
+                const n = Number(v);
+                if (Number.isFinite(n) && n >= 1) onUpdate(task.id, { duration_days: n });
+              }
+        }
         afterName={
           <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>
             {readOnly ? (

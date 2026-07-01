@@ -4,12 +4,12 @@ import { GanttView } from "../components/GanttView";
 import { TaskTable } from "../components/TaskTable";
 import { ProposalReview } from "../components/ProposalReview";
 import { ConflictDialog } from "../components/ConflictDialog";
+import { ConfirmChangeDialog } from "../components/ConfirmChangeDialog";
 import { useSchedule } from "../hooks/useSchedule";
 import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
-import { addDaysISO, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
-import { isStarted } from "../lib/task";
+import { addDaysISO, businessDays, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
 import type { ChangeType, TaskOut } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
@@ -30,6 +30,40 @@ function overlaps(t: TaskOut, startIso: string, endIso: string): boolean {
   return t.planned_start <= endIso && t.planned_finish >= startIso;
 }
 
+// A change awaiting the user's confirmation before it's written.
+interface PendingEdit {
+  taskName: string;
+  lines: string[];
+  run: () => Promise<boolean>;
+  resolve: (ok: boolean) => void;
+}
+
+// Fields that reschedule a task — these route through the confirm modal.
+const DATE_DUR_FIELDS = [
+  "actual_start",
+  "actual_finish",
+  "start_no_earlier_than",
+  "duration_days",
+] as const;
+
+const day = (v: string | null | undefined) => (v ? mmddyy(v) : "—");
+
+// Human-readable summary of a date/duration change, for the confirm modal.
+function describeEdit(t: TaskOut, fields: Partial<TaskOut>): string[] {
+  const lines: string[] = [];
+  if ("start_no_earlier_than" in fields || "actual_start" in fields) {
+    const nv = (fields.actual_start ?? fields.start_no_earlier_than) as string | null;
+    lines.push(`Start ${day(t.planned_start)} → ${day(nv)}`);
+  }
+  if ("actual_finish" in fields) {
+    lines.push(`Finish ${day(t.planned_finish)} → ${day(fields.actual_finish as string | null)}`);
+  }
+  if ("duration_days" in fields) {
+    lines.push(`Duration ${t.duration_days} → ${fields.duration_days} days`);
+  }
+  return lines;
+}
+
 export function ProjectPage({
   projectId,
   tab,
@@ -44,6 +78,11 @@ export function ProjectPage({
   const [range, setRange] = useState<ScheduleRange>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [reviewing, setReviewing] = useState(false);
+  const [pending, setPending] = useState<PendingEdit | null>(null);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  // Bumped when a grid date/duration edit is cancelled, to remount the grid so a
+  // typed-but-unconfirmed value snaps back to the server value.
+  const [gridNonce, setGridNonce] = useState(0);
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
 
   // Picking a window also drops to a readable zoom; the user can still re-zoom.
@@ -123,15 +162,60 @@ export function ProjectPage({
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule || !source) return <p className="muted">No schedule.</p>;
 
-  // Dragging a Gantt bar reschedules: a not-yet-started task moves via the
-  // planning constraint; a started task edits its actual start.
-  const handleGanttDateChange = (taskId: number, start: Date) => {
-    const iso = toISODate(start);
+  // Every date/duration change is confirmed before it's written. Non-date edits
+  // (name, trade, %, status) apply immediately. Returns whether it was applied, so
+  // the Gantt can revert the bar on cancel/failure.
+  const requestEdit = (taskId: number, fields: Partial<TaskOut>): Promise<boolean> => {
     const t = source.tasks.find((x) => x.id === taskId);
-    updateTask(
-      taskId,
-      t && !isStarted(t) ? { start_no_earlier_than: iso } : { actual_start: iso },
+    const touchesSchedule = Object.keys(fields).some((k) =>
+      (DATE_DUR_FIELDS as readonly string[]).includes(k),
     );
+    if (!t || !touchesSchedule) return updateTask(taskId, fields);
+    const lines = describeEdit(t, fields);
+    if (lines.length === 0) return Promise.resolve(true); // nothing actually changed
+    return new Promise<boolean>((resolve) => {
+      setPending({ taskName: t.name, lines, resolve, run: () => updateTask(taskId, fields) });
+    });
+  };
+
+  const confirmPending = async () => {
+    if (!pending) return;
+    setPendingBusy(true);
+    const ok = await pending.run();
+    pending.resolve(ok);
+    setPending(null);
+    setPendingBusy(false);
+  };
+
+  const cancelPending = () => {
+    if (!pending) return;
+    pending.resolve(false); // Gantt reverts the bar; grid date cell reverts on its own
+    setPending(null);
+    setGridNonce((n) => n + 1); // remount the grid so a typed duration snaps back
+  };
+
+  // Dragging/resizing a Gantt bar reschedules: a not-yet-started task moves via the
+  // planning constraint, a started task edits its actual start; the span sets duration.
+  const handleGanttDateChange = (taskId: number, start: Date, end: Date): Promise<boolean> => {
+    const t = source.tasks.find((x) => x.id === taskId);
+    if (!t) return Promise.resolve(false);
+    const newStart = toISODate(start);
+    const fields: Partial<TaskOut> = {};
+    if (newStart !== t.planned_start) {
+      if (t.actual_start) fields.actual_start = newStart;
+      else fields.start_no_earlier_than = newStart;
+    }
+    if (!t.is_milestone) {
+      const newDur = businessDays(start, end);
+      if (newDur > 0 && newDur !== t.duration_days) fields.duration_days = newDur;
+    }
+    if (Object.keys(fields).length === 0) return Promise.resolve(true); // no-op
+    return requestEdit(taskId, fields);
+  };
+
+  // Grid edits route through the same confirm flow (date/duration) or apply directly.
+  const handleGridUpdate = (taskId: number, fields: Partial<TaskOut>) => {
+    void requestEdit(taskId, fields);
   };
 
   const dependencies = source.dependencies;
@@ -154,6 +238,16 @@ export function ProjectPage({
           updatedAt={conflict.updatedAt}
           onConfirm={conflict.apply}
           onCancel={dismissConflict}
+        />
+      )}
+
+      {pending && (
+        <ConfirmChangeDialog
+          taskName={pending.taskName}
+          lines={pending.lines}
+          busy={pendingBusy}
+          onConfirm={confirmPending}
+          onCancel={cancelPending}
         />
       )}
 
@@ -247,11 +341,12 @@ export function ProjectPage({
         ) : (
           <div className="table-scroll">
             <TaskTable
+              key={gridNonce}
               rows={shown}
               trades={trades}
               collapsed={collapsed}
               onToggle={toggle}
-              onUpdate={updateTask}
+              onUpdate={handleGridUpdate}
               onDelete={removeTask}
               changeStatus={review ? changeStatus : undefined}
             />

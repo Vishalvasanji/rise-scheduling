@@ -1215,6 +1215,29 @@ button {
   margin-top: 16px;
 }
 
+/* Field-change list in the confirm-change modal. */
+.modal-changes {
+  margin: 0 0 4px;
+  padding: 10px 14px;
+  list-style: none;
+  background: var(--surface-sunken, rgba(120, 120, 128, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The Gantt "today" marker: the library draws a full-column rect in g.today;
+   overriding its geometry via CSS renders a crisp 2px red line on the current day
+   (SVG presentation attributes lose to CSS; falls back to a red band otherwise). */
+.schedule-region g.today rect {
+  width: 2px;
+  fill: #e5484d;
+}
+
 /* ---- Activity (change-log) module --------------------------------------- */
 
 .activity-page {
