@@ -386,13 +386,15 @@ export function ProjectPage({
               {nextMilestones.length === 0 ? (
                 <span className="metric__value metric__value--muted">None upcoming</span>
               ) : (
-                nextMilestones.map((m) => (
-                  <span key={m.t.id} className="metric__value">
-                    {m.t.building ? `${m.t.building}, ` : ""}
-                    {m.t.name}, {mmddyy(m.date)},{" "}
-                    <span className={countClass(m.date)}>{countLabel(m.date, "away")}</span>
+                <span className="metric__value">
+                  {nextMilestones
+                    .map((m) => (m.t.building ? `${m.t.building}, ${m.t.name}` : m.t.name))
+                    .join(" · ")}
+                  , {mmddyy(nextMilestones[0].date)},{" "}
+                  <span className={countClass(nextMilestones[0].date)}>
+                    {countLabel(nextMilestones[0].date, "away")}
                   </span>
-                ))
+                </span>
               )}
             </div>
           </div>

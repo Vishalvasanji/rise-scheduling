@@ -318,6 +318,7 @@ button {
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .metric__value--muted {
