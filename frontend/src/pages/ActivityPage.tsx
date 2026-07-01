@@ -57,31 +57,34 @@ export function ActivityPage({ projectId }: { projectId: number }) {
             <tr>
               <th>When</th>
               <th>Who</th>
+              <th>Source</th>
               <th>Action</th>
               <th>Change</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="muted nowrap">{when(r.created_at)}</td>
-                <td className="nowrap">
-                  {r.actor}
-                  {r.source === "chat" && (
-                    <span className="via-claude" title="Changed through Claude.ai chat">
-                      via Claude
+            {rows.map((r) => {
+              const viaClaude = r.source === "chat" || r.actor === "chat";
+              return (
+                <tr key={r.id}>
+                  <td className="muted nowrap">{when(r.created_at)}</td>
+                  <td className="nowrap">{r.actor_name ?? r.actor}</td>
+                  <td className="nowrap">
+                    <span className={`src-badge ${viaClaude ? "src-chat" : "src-web"}`}>
+                      {viaClaude ? "Claude" : "Web"}
                     </span>
-                  )}
-                </td>
-                <td>
-                  <span className={`act-badge act-${r.action}`}>{r.action}</span>
-                </td>
-                <td>
-                  {r.summary ??
-                    `${r.action} ${r.entity_type}${r.entity_id ? ` #${r.entity_id}` : ""}`}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <span className={`act-badge act-${r.action}`}>{r.action}</span>
+                  </td>
+                  <td>
+                    {r.detail ??
+                      r.summary ??
+                      `${r.action} ${r.entity_type}${r.entity_id ? ` #${r.entity_id}` : ""}`}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

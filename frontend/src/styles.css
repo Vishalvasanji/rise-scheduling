@@ -1315,15 +1315,22 @@ button {
   color: var(--text-muted);
 }
 
-/* "via Claude" badge on chat-sourced activity rows. */
-.via-claude {
+/* Source badge (Web / Claude) on activity rows. */
+.src-badge {
   display: inline-block;
-  margin-left: 8px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
+  vertical-align: middle;
+}
+
+.src-chat {
   background: rgba(99, 102, 241, 0.14);
   color: #4f46e5;
-  vertical-align: middle;
+}
+
+.src-web {
+  background: var(--fill-subtle, rgba(120, 120, 128, 0.12));
+  color: var(--text-muted);
 }

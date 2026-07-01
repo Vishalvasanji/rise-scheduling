@@ -12,10 +12,12 @@ class AuditOut(BaseModel):
 
     id: int
     actor: str
+    actor_name: str | None = None  # resolved full name, when the actor is a known user
     source: str  # web | chat (chat = made via the Claude.ai connector)
     action: str  # create | update | delete
     entity_type: str  # task | dependency
     entity_id: int | None
     project_id: int | None
     summary: str | None
+    detail: str | None = None  # descriptive field-level change ("… → …"), when available
     created_at: datetime
