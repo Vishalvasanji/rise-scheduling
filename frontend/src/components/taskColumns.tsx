@@ -26,26 +26,38 @@ export const FONT_SIZE = "13px";
 
 const NAME_KEY = "rise_task_name_w";
 
+// Excel-style column-header band: gray fill, bold, framed by gridlines. The left
+// border closes the grid's left edge (cells carry only a right border); the bottom
+// border is the header/body divider in the shared gridline gray.
 export const headerRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  // Stretch so each cell fills the full row height and its right-border gridline
+  // is a continuous vertical line (cells re-center their own content via cellBase).
+  alignItems: "stretch",
   height: HEADER_H,
   fontSize: FONT_SIZE,
   fontWeight: 600,
   color: "var(--text-2)",
-  background: "var(--surface-2)",
-  borderBottom: "1px solid var(--separator)",
+  background: "var(--grid-header-bg)",
+  borderTop: "1px solid var(--grid-line)",
+  borderLeft: "1px solid var(--grid-line)",
+  borderBottom: "1px solid var(--grid-line)",
   boxSizing: "border-box",
 };
 
+// A spreadsheet row: horizontal gridline underneath, left edge closed to match the
+// header. Per-cell right borders draw the vertical gridlines.
 export const bodyRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "stretch",
   height: ROW_H,
-  borderBottom: "1px solid var(--separator)",
+  borderLeft: "1px solid var(--grid-line)",
+  borderBottom: "1px solid var(--grid-line)",
   boxSizing: "border-box",
 };
 
+// Every cell carries a right gridline, so header + body + empty spacer cells all read
+// as boxed spreadsheet cells (Excel draws lines through blanks too).
 export const cellBase: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -53,11 +65,14 @@ export const cellBase: CSSProperties = {
   overflow: "hidden",
   whiteSpace: "nowrap",
   textOverflow: "ellipsis",
+  borderRight: "1px solid var(--grid-line)",
+  boxSizing: "border-box",
 };
 
 // From/To/Days center their short values horizontally.
 export const cellCenter: CSSProperties = { ...cellBase, justifyContent: "center" };
 
+// Just the drag hit-area; the Task cell's own right gridline is the visible divider.
 const resizeHandle: CSSProperties = {
   position: "absolute",
   top: 0,
@@ -65,7 +80,6 @@ const resizeHandle: CSSProperties = {
   height: "100%",
   width: 9,
   cursor: "col-resize",
-  borderRight: "1px solid var(--separator-strong)",
 };
 
 // Resizable, persisted Task-column width. Both tabs read the same localStorage key,
