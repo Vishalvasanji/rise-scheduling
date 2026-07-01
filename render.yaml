@@ -28,8 +28,8 @@ services:
 
   # MCP server (Claude chat connector) — Streamable HTTP at /mcp. Same image and
   # service layer as the API, so chat writes go through the same engine + audit
-  # path. No healthCheckPath: Render falls back to a port check, and /mcp does not
-  # answer a plain GET health probe. DB is migrated/seeded by the API service.
+  # path. /health is a cheap no-DB liveness route (/mcp itself refuses a plain GET).
+  # DB is migrated/seeded by the API service.
   - type: web
     name: rise-schedule-hub-mcp
     runtime: docker
@@ -37,6 +37,7 @@ services:
     dockerContext: ./backend
     dockerCommand: python -m app.mcp.server --http
     plan: free
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         sync: false

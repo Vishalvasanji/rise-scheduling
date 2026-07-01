@@ -25,6 +25,12 @@ export const getConnectorUrl = () =>
 export const getClaudeStatus = () =>
   api.get<{ connected: boolean }>("/auth/claude-status");
 
+// Wake the (free-tier, sleeps-when-idle) MCP connector server so it's ready before
+// the user connects from Claude. May block for a cold start; resolves ready:false
+// if the server can't be reached.
+export const warmConnector = () =>
+  api.get<{ ready: boolean }>("/auth/connector-warm");
+
 export function logout(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
