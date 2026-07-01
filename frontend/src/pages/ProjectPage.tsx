@@ -264,7 +264,6 @@ export function ProjectPage({
     const u = date ? urgency(date) : "";
     return u ? `metric metric${u}` : "metric";
   };
-  const finish = source.project.planned_finish;
   const windowLabel = activeWindow
     ? range === "today"
       ? mmddyy(activeWindow.start)
@@ -394,17 +393,6 @@ export function ProjectPage({
                     <span className={countClass(m.date)}>{countLabel(m.date, "away")}</span>
                   </span>
                 ))
-              )}
-            </div>
-            <div className={cardClass(finish)}>
-              <span className="metric__label">End Date</span>
-              {finish ? (
-                <span className="metric__value">
-                  {mmddyy(finish)} ·{" "}
-                  <span className={countClass(finish)}>{countLabel(finish, "left")}</span>
-                </span>
-              ) : (
-                <span className="metric__value metric__value--muted">—</span>
               )}
             </div>
           </div>
