@@ -266,36 +266,45 @@ button {
   margin: 0 0 12px;
 }
 
-/* Expand all / Collapse all for WBS roll-up groups. */
-.rollup-controls {
+/* Left toolbar group: icon-only Expand all / Collapse all + Edit / Save / Cancel. */
+.grid-tools {
   display: inline-flex;
+  align-items: center;
   gap: 4px;
 }
 
-.rollup-controls button {
+.icon-btn {
   appearance: none;
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 16px;
+  line-height: 1;
   color: var(--text-2);
-  padding: 6px 10px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.rollup-controls button:hover {
+.icon-btn:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--text);
 }
 
-.rollup-controls button:disabled {
-  color: var(--text-3);
+.icon-btn:disabled {
+  opacity: 0.4;
   cursor: default;
   background: transparent;
-  opacity: 0.5;
+}
+
+/* Save (💾) reads as the primary action. */
+.icon-btn--primary {
+  color: var(--blue);
 }
 
 /* View switcher in the top bar (Schedule / Tasks), as clickable menu items. */
@@ -903,21 +912,33 @@ button {
 
 /* ---- Edit session (pencil → Save) --------------------------------------- */
 
-.edit-control {
-  display: inline-flex;
+/* Edit-mode banner (blue info bar at the top while a spreadsheet edit session is active). */
+.edit-mode-banner {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  background: rgba(0, 113, 227, 0.06);
+  border: 1px solid rgba(0, 113, 227, 0.22);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  margin-bottom: 12px;
 }
 
-.edit-hint {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--blue);
-  white-space: nowrap;
+.edit-mode-banner__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
 }
 
-.edit-toggle {
-  font-weight: 600;
+.edit-mode-banner__text {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.edit-mode-banner__meta {
+  color: var(--text-2);
 }
 
 /* A cell holding an unsaved edit is tinted (full-cell, square) so it reads as a

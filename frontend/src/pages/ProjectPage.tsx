@@ -270,45 +270,78 @@ export function ProjectPage({
         />
       )}
 
+      {editMode && !review && (
+        <div className="edit-mode-banner">
+          <span className="edit-mode-banner__dot" />
+          <span className="edit-mode-banner__text">
+            You're in edit mode — changes are staged. Click 💾 to save or ✕ to cancel.
+            {draftCount ? (
+              <span className="edit-mode-banner__meta">{` · ${draftCount} unsaved change${
+                draftCount === 1 ? "" : "s"
+              }`}</span>
+            ) : null}
+          </span>
+        </div>
+      )}
+
       <div className="toolbar">
-        {hasGroups ? (
-          <div className="rollup-controls">
-            <button onClick={expandAll} disabled={collapsed.size === 0}>
-              Expand all
-            </button>
-            <button onClick={collapseAll} disabled={allCollapsed}>
-              Collapse all
-            </button>
-          </div>
-        ) : (
-          <span />
-        )}
-        <div className="toolbar__right">
-          {!review && (
-            <div className="edit-control">
-              {editMode ? (
-                <>
-                  <span className="edit-hint">
-                    Editing{draftCount ? ` · ${draftCount} changed` : ""}
-                  </span>
-                  <button className="btn-ghost" onClick={cancelEdit} disabled={saving}>
-                    Cancel
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={() => void save()}
-                    disabled={saving || draftCount === 0}
-                  >
-                    {saving ? "Saving…" : `Save${draftCount ? ` (${draftCount})` : ""}`}
-                  </button>
-                </>
-              ) : (
-                <button className="btn-ghost edit-toggle" onClick={startEdit}>
-                  ✏️ Edit
-                </button>
-              )}
-            </div>
+        <div className="grid-tools">
+          {hasGroups && (
+            <>
+              <button
+                className="icon-btn"
+                title="Expand all"
+                aria-label="Expand all"
+                onClick={expandAll}
+                disabled={collapsed.size === 0}
+              >
+                ⊞
+              </button>
+              <button
+                className="icon-btn"
+                title="Collapse all"
+                aria-label="Collapse all"
+                onClick={collapseAll}
+                disabled={allCollapsed}
+              >
+                ⊟
+              </button>
+            </>
           )}
+          {!review &&
+            (editMode ? (
+              <>
+                <button
+                  className="icon-btn icon-btn--primary"
+                  title={saving ? "Saving…" : "Save changes"}
+                  aria-label="Save changes"
+                  onClick={() => void save()}
+                  disabled={saving || draftCount === 0}
+                >
+                  💾
+                </button>
+                <button
+                  className="icon-btn"
+                  title="Cancel"
+                  aria-label="Cancel editing"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                >
+                  ✕
+                </button>
+              </>
+            ) : (
+              <button
+                className="icon-btn"
+                title="Edit"
+                aria-label="Edit"
+                onClick={startEdit}
+              >
+                ✏️
+              </button>
+            ))}
+        </div>
+        <div className="toolbar__right">
           {tab === "gantt" && (
             <div className="legend">
               {review ? (
