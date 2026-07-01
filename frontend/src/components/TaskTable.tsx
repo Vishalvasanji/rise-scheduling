@@ -245,7 +245,17 @@ function Line({
                 onCommit={(v) => onCell(base.id, { trade: v || null })}
               />
             ) : (
-              <span style={{ ...cellBase, width: TRADE_W, color: "var(--text-2)" }}>
+              // Plain text (not a nested cellBase — that would draw a second gridline
+              // inside the cell); the column's border lives on the outer cell div.
+              <span
+                style={{
+                  padding: "0 8px",
+                  color: "var(--text-2)",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {task.trade ?? "—"}
               </span>
             )}
