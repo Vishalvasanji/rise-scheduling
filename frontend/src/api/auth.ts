@@ -21,6 +21,10 @@ export const getMe = () => api.get<Me>("/auth/me");
 export const getConnectorUrl = () =>
   api.get<{ connector_url: string }>("/auth/connector-url");
 
+// Whether this user's Claude connector is live (drives the header status pill).
+export const getClaudeStatus = () =>
+  api.get<{ connected: boolean }>("/auth/claude-status");
+
 export function logout(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
