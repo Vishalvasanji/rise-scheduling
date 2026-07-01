@@ -135,6 +135,25 @@ def test_activity_shows_name_and_descriptive_change(admin_token):
     assert upd["source"] == "web"
 
 
+def test_claude_status_reflects_connector(admin_token):
+    import time
+
+    from app.repositories import oauth_repo
+
+    h = _hdr(admin_token)
+    # Gated.
+    assert client.get("/auth/claude-status").status_code == 401
+    # No connector yet → disconnected.
+    assert client.get("/auth/claude-status", headers=h).json() == {"connected": False}
+
+    with session_scope() as s:
+        oauth_repo.add_refresh_token(
+            s, token="rt-admin2", client_id="c", subject="admin2@example.com",
+            scopes=["mcp"], expires_at=int(time.time()) + 3600,
+        )
+    assert client.get("/auth/claude-status", headers=h).json() == {"connected": True}
+
+
 def test_admin_can_reassign_projects(admin_token):
     h = _hdr(admin_token)
     p = client.post(

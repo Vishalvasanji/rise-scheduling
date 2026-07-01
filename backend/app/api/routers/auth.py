@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import CurrentUserDep, SessionDep
 from app.auth import AuthError
 from app.config import get_settings
-from app.repositories import user_repo
+from app.repositories import oauth_repo, user_repo
 from app.schemas.auth import (
     ConnectorTokenResponse,
     LoginRequest,
@@ -28,6 +28,13 @@ def login(payload: LoginRequest, session: SessionDep):
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         ) from exc
     return TokenResponse(access_token=token)
+
+
+@router.get("/claude-status")
+def claude_status(user: CurrentUserDep, session: SessionDep):
+    """Whether this user's Claude connector is live — i.e. they hold a non-expired
+    OAuth refresh token. Drives the header's Claude status pill."""
+    return {"connected": oauth_repo.has_active_refresh_token(session, user.email)}
 
 
 @router.get("/connector-url")

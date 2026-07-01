@@ -1332,6 +1332,42 @@ button {
   font-size: 12px;
 }
 
+/* ---- Claude connection-status pill (header) ---- */
+.claude-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.claude-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.claude-pill--live {
+  background: rgba(52, 199, 89, 0.16);
+  color: #1a7f37;
+}
+
+.claude-pill--down {
+  background: rgba(255, 59, 48, 0.14);
+  color: var(--red-ink, #c1121f);
+}
+
+.claude-pill--unknown {
+  background: var(--fill-subtle, rgba(120, 120, 128, 0.12));
+  color: var(--text-muted);
+}
+
 /* Source badge (Web / Claude) on activity rows. */
 .src-badge {
   display: inline-block;

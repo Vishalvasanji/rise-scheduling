@@ -3,7 +3,9 @@ refresh tokens). Codes are single-use; codes/tokens carry an expiry we enforce o
 
 from __future__ import annotations
 
-from sqlalchemy import delete
+import time
+
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import OAuthAuthCode, OAuthClient, OAuthRefreshToken
@@ -60,6 +62,23 @@ def add_refresh_token(session: Session, **fields) -> OAuthRefreshToken:
 
 def get_refresh_token(session: Session, token: str) -> OAuthRefreshToken | None:
     return session.get(OAuthRefreshToken, token)
+
+
+def has_active_refresh_token(session: Session, subject: str) -> bool:
+    """True if the user holds a non-expired refresh token — i.e. their Claude connector
+    is set up and usable. Used by the header's connection-status pill."""
+    row = session.scalar(
+        select(OAuthRefreshToken.token)
+        .where(OAuthRefreshToken.subject == subject)
+        .where(
+            or_(
+                OAuthRefreshToken.expires_at.is_(None),
+                OAuthRefreshToken.expires_at > int(time.time()),
+            )
+        )
+        .limit(1)
+    )
+    return row is not None
 
 
 def delete_refresh_token(session: Session, token: str) -> None:

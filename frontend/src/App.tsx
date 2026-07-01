@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listProjects } from "./api/schedule";
 import type { ProjectOut } from "./types/schedule";
-import type { Me } from "./api/auth";
+import { getClaudeStatus, type Me } from "./api/auth";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -36,6 +36,7 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
   const [view, setView] = useState<"project" | "admin" | "connect">("project");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [claudeConnected, setClaudeConnected] = useState<boolean | null>(null);
 
   const load = useCallback(() => {
     setStatus("loading");
@@ -54,6 +55,29 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Claude connection status for the header pill. Connecting happens externally in
+  // Claude.ai, so poll (and refresh on focus / when returning to the schedule view).
+  const refreshClaude = useCallback(() => {
+    getClaudeStatus()
+      .then((r) => setClaudeConnected(r.connected))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshClaude();
+    const id = window.setInterval(refreshClaude, 60000);
+    const onFocus = () => refreshClaude();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshClaude]);
+
+  useEffect(() => {
+    if (view === "project") refreshClaude();
+  }, [view, refreshClaude]);
 
   const userLabel = user.full_name || user.email;
 
@@ -115,8 +139,23 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
 
         <div className="topbar__user">
           {view === "project" && (
-            <button className="top-nav__item" onClick={() => setView("connect")}>
-              Connect Claude
+            <button
+              className={`claude-pill ${
+                claudeConnected == null
+                  ? "claude-pill--unknown"
+                  : claudeConnected
+                    ? "claude-pill--live"
+                    : "claude-pill--down"
+              }`}
+              onClick={() => setView("connect")}
+              title={
+                claudeConnected
+                  ? "Claude connected — click to manage"
+                  : "Claude not connected — click to set up"
+              }
+            >
+              <span className="claude-pill__dot" />
+              Claude
             </button>
           )}
           {user.is_admin && view === "project" && (

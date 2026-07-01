@@ -5,6 +5,7 @@ access token being the same scope:"mcp" JWT the tools already verify."""
 from __future__ import annotations
 
 import asyncio
+import time
 
 from mcp.server.auth.provider import AuthorizationParams
 from mcp.shared.auth import OAuthClientInformationFull
@@ -16,6 +17,7 @@ from app.mcp import oauth
 from app.mcp.auth import decode_mcp_token
 from app.mcp.oauth import SchedulingHubOAuthProvider, verify_login_request
 from app.mcp.oauth_login import oauth_login
+from app.repositories import oauth_repo
 from app.services import auth_service
 
 REDIRECT = "https://claude.ai/api/mcp/auth_callback"
@@ -134,3 +136,24 @@ def test_signin_completes_grant_and_rejects_bad_password(session):
     assert ok.status_code == 302
     assert ok.headers["location"].startswith(REDIRECT)
     assert "code=" in ok.headers["location"] and "state=xyz" in ok.headers["location"]
+
+
+# ---- connection-status pill signal ----
+
+def test_has_active_refresh_token(session):
+    email = "pill@example.com"
+    assert oauth_repo.has_active_refresh_token(session, email) is False
+    oauth_repo.add_refresh_token(
+        session, token="rt-live", client_id="c", subject=email,
+        scopes=["mcp"], expires_at=int(time.time()) + 3600,
+    )
+    assert oauth_repo.has_active_refresh_token(session, email) is True
+
+
+def test_has_active_refresh_token_ignores_expired(session):
+    email = "expired@example.com"
+    oauth_repo.add_refresh_token(
+        session, token="rt-old", client_id="c", subject=email,
+        scopes=["mcp"], expires_at=int(time.time()) - 10,
+    )
+    assert oauth_repo.has_active_refresh_token(session, email) is False
