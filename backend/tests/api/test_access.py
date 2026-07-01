@@ -41,6 +41,15 @@ def test_auth_required(admin_token):
     assert client.get("/projects", headers=_hdr(admin_token)).status_code == 200
 
 
+def test_login_token_lasts_at_least_thirty_days(admin_token):
+    # Users should stay signed in for at least 30 days without re-logging in.
+    from app.auth import get_auth_backend
+
+    claims = get_auth_backend().verify_token(admin_token)
+    lifetime_days = (claims["exp"] - claims["iat"]) / 86_400
+    assert lifetime_days >= 30
+
+
 def test_me(admin_token):
     me = client.get("/auth/me", headers=_hdr(admin_token)).json()
     assert me["email"] == "admin2@example.com"
