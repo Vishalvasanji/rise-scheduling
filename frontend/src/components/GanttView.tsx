@@ -416,6 +416,9 @@ export function GanttView({
 
   return (
     <MetaContext.Provider value={metaValue}>
+      {/* data-view drives a CSS nudge that re-centers Day-view date labels onto
+          their gridlines (see .gantt-cal[data-view="day"] in styles.css). */}
+      <div className="gantt-cal" data-view={viewMode === ViewMode.Day ? "day" : "wide"}>
       <Gantt
         tasks={ganttTasks}
         viewMode={viewMode}
@@ -433,6 +436,7 @@ export function GanttView({
         TaskListTable={GanttListTable}
         TooltipContent={GanttTooltip}
       />
+      </div>
     </MetaContext.Provider>
   );
 }

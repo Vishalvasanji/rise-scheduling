@@ -1156,6 +1156,16 @@ button {
   fill: var(--text-2);
 }
 
+/* Day-view date labels sit on their gridline, not centered in the cell. The
+   library places each bottom label (._9w8d5) at the cell CENTER
+   (columnWidth*i + columnWidth*0.5) while the vertical gridline — the real day
+   boundary a bar starts on — is at the cell's LEFT edge (columnWidth*i). Nudge
+   the label left by half a Day column (columnWidth = 30 in GanttView) so the
+   number lands on its line. Scoped to Day view via .gantt-cal[data-view]. */
+.schedule-region .gantt-cal[data-view="day"] text._9w8d5 {
+  transform: translateX(-15px);
+}
+
 /* The library defaults its SVG text to Arial; force the app font so the chart's
    calendar + bar labels match the DOM list/grid. (A CSS rule beats the library's
    font-family presentation attribute on the <text> elements.) */
