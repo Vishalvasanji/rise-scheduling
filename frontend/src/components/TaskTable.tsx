@@ -1,17 +1,17 @@
-// Read/edit task grid. The first five columns (WBS · Task · From · To · Days) are
-// the shared lead block rendered identically to the Gantt list; everything after
-// them is grid-only (Trade · Float · % · Critical · delete). Every editable field
-// edits inline on click — name/% via text inputs, From/To via date pickers (which
-// set the task's actuals and reschedule), Trade via a fuzzy-matching typeahead over
-// trades already in use. WBS, Float and Critical are engine-computed / read-only.
-// WBS roll-up group rows are bold, collapsible, and read-only.
+// Read/edit task grid — an Excel / MS-Project-style spreadsheet. The grid is
+// READ-ONLY until an edit session is started (the toolbar pencil); then the cells
+// (Name · From · To · Days · Trade · % · Status) edit directly and stage into a
+// draft, and pressing Save pushes every change at once. The first columns (WBS ·
+// Task · Building · From · To · Days) are the shared lead block rendered identically
+// to the Gantt list; the rest are grid-only. WBS, Float and Critical are
+// engine-computed / read-only, as are WBS roll-up group rows.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { ChangeType, TaskOut } from "../types/schedule";
+import type { ChangeType, TaskOut, TaskStatus } from "../types/schedule";
 import type { GroupRow, Row, TaskRow } from "../lib/rollup";
 import { businessDays, mmddyy } from "../lib/dates";
-import { isStarted } from "../lib/task";
+import { applyDraft, startFieldForEdit } from "../lib/task";
 import {
   CellInput,
   LeadCells,
@@ -29,7 +29,12 @@ interface Props {
   trades: string[];
   collapsed: Set<string>;
   onToggle: (id: string) => void;
-  onUpdate: (taskId: number, fields: Partial<TaskOut>) => void;
+  /** Whether an edit session is active (cells editable, staging into the draft). */
+  editMode: boolean;
+  /** Per-task staged edits, overlaid for display; a field present => dirty cell. */
+  draft: Map<number, Partial<TaskOut>>;
+  /** Stage a change into the draft (does NOT hit the server until Save). */
+  onCell: (taskId: number, fields: Partial<TaskOut>) => void;
   onDelete: (taskId: number) => void;
   /** Review mode: task id -> change kind. Present => tint rows + read-only. */
   changeStatus?: Map<number, ChangeType>;
@@ -39,26 +44,38 @@ interface Props {
 const TRADE_W = 140;
 const FLOAT_W = 64;
 const PCT_W = 64;
+const STATUS_W = 116;
 const CRIT_W = 64;
 const DEL_W = 72;
 
-const trailingWidth = TRADE_W + FLOAT_W + PCT_W + CRIT_W + DEL_W;
+const trailingWidth = TRADE_W + FLOAT_W + PCT_W + STATUS_W + CRIT_W + DEL_W;
 
 // "Trade" header / cell, placed right after Task via the LeadCells afterName slot.
 const tradeHeader = <div style={{ ...cellBase, width: TRADE_W }}>Trade</div>;
+
+const STATUS_OPTS: { value: TaskStatus; label: string }[] = [
+  { value: "not_started", label: "Not started" },
+  { value: "in_progress", label: "In progress" },
+  { value: "complete", label: "Complete" },
+  { value: "blocked", label: "Blocked" },
+];
+const statusLabel = (s: TaskStatus) => STATUS_OPTS.find((o) => o.value === s)?.label ?? s;
 
 export function TaskTable({
   rows,
   trades,
   collapsed,
   onToggle,
-  onUpdate,
+  editMode,
+  draft,
+  onCell,
   onDelete,
   changeStatus,
 }: Props) {
   const { nameWidth, onResizeStart } = useSharedNameWidth();
   const minWidth = leadWidth(nameWidth) + trailingWidth;
   const review = !!changeStatus;
+  const editable = editMode && !review;
 
   return (
     <div className="task-grid" style={{ minWidth, fontSize: "13px" }}>
@@ -66,6 +83,7 @@ export function TaskTable({
         <LeadHeader nameWidth={nameWidth} onResizeStart={onResizeStart} afterName={tradeHeader} />
         <div style={{ ...cellCenter, width: FLOAT_W }}>Float</div>
         <div style={{ ...cellCenter, width: PCT_W }}>%</div>
+        <div style={{ ...cellCenter, width: STATUS_W }}>Status</div>
         <div style={{ ...cellCenter, width: CRIT_W }}>Critical</div>
         <div style={{ ...cellBase, width: DEL_W }} />
       </div>
@@ -84,9 +102,10 @@ export function TaskTable({
             row={r}
             nameWidth={nameWidth}
             trades={trades}
-            onUpdate={onUpdate}
+            editable={editable}
+            draftFields={draft.get(r.task.id)}
+            onCell={onCell}
             onDelete={onDelete}
-            readOnly={review}
             change={changeStatus?.get(r.task.id)}
           />
         ),
@@ -124,6 +143,7 @@ function GroupLine({
       />
       <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
       <div style={{ ...cellCenter, width: PCT_W, color: "var(--text-2)" }}>{Math.round(row.percent)}</div>
+      <div style={{ ...cellCenter, width: STATUS_W, color: "var(--text-3)" }}>—</div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
         {row.isCritical ? "●" : ""}
       </div>
@@ -136,26 +156,34 @@ function Line({
   row,
   nameWidth,
   trades,
-  onUpdate,
+  editable,
+  draftFields,
+  onCell,
   onDelete,
-  readOnly = false,
   change,
 }: {
   row: TaskRow;
   nameWidth: number;
   trades: string[];
-  onUpdate: Props["onUpdate"];
+  editable: boolean;
+  draftFields?: Partial<TaskOut>;
+  onCell: Props["onCell"];
   onDelete: Props["onDelete"];
-  readOnly?: boolean;
   change?: ChangeType;
 }) {
-  const task = row.task;
-  // Days is a calc of the selected dates (inclusive business-day span), not editable.
-  const days =
-    !task.is_milestone && task.planned_start && task.planned_finish
+  const base = row.task;
+  // Display values overlay any staged draft so edited cells show the typed value.
+  const task = applyDraft(base, draftFields);
+  const has = (f: keyof TaskOut) => !!draftFields && f in draftFields;
+  const dirtyFrom = has("actual_start") || has("start_no_earlier_than");
+
+  // In edit mode Days shows the editable duration; otherwise the planned span.
+  const days = editable
+    ? task.duration_days
+    : !task.is_milestone && task.planned_start && task.planned_finish
       ? businessDays(task.planned_start, task.planned_finish)
       : 0;
-  const float = task.total_float ?? null;
+  const float = base.total_float ?? null;
   const floatStyle: CSSProperties = {
     ...cellCenter,
     width: FLOAT_W,
@@ -163,7 +191,10 @@ function Line({
     fontWeight: float !== null && float < 0 ? 600 : 400,
   };
 
-  const rowClass = `task-grid__row${change ? ` task-grid__row--${change}` : ""}`;
+  const dirtyRow = !!draftFields && Object.keys(draftFields).length > 0;
+  const rowClass =
+    `task-grid__row${change ? ` task-grid__row--${change}` : ""}` +
+    (dirtyRow ? " task-grid__row--dirty" : "");
 
   return (
     <div className={rowClass} style={bodyRowStyle}>
@@ -183,56 +214,47 @@ function Line({
             ? `Earliest start: ${mmddyy(task.start_no_earlier_than)}`
             : undefined
         }
+        dirtyName={has("name")}
+        dirtyFrom={dirtyFrom}
+        dirtyTo={has("actual_finish")}
+        dirtyDays={has("duration_days")}
         onCommitName={
-          readOnly
-            ? undefined
-            : (v) => {
-                if (v) onUpdate(task.id, { name: v });
+          editable
+            ? (v) => {
+                if (v) onCell(base.id, { name: v });
               }
+            : undefined
         }
-        onCommitFrom={
-          readOnly
-            ? undefined
-            : (v) =>
-                // A not-yet-started task reschedules via the planning constraint;
-                // once work has begun, the date edits the actual start.
-                onUpdate(
-                  task.id,
-                  isStarted(task)
-                    ? { actual_start: v || null }
-                    : { start_no_earlier_than: v || null },
-                )
-        }
-        onCommitTo={readOnly ? undefined : (v) => onUpdate(task.id, { actual_finish: v || null })}
+        onCommitFrom={editable ? (v) => onCell(base.id, startFieldForEdit(base, v)) : undefined}
+        onCommitTo={editable ? (v) => onCell(base.id, { actual_finish: v || null }) : undefined}
         onCommitDays={
-          readOnly
-            ? undefined
-            : (v) => {
+          editable
+            ? (v) => {
                 const n = Number(v);
-                if (Number.isFinite(n) && n >= 1) onUpdate(task.id, { duration_days: n });
+                if (Number.isFinite(n) && n >= 1) onCell(base.id, { duration_days: n });
               }
+            : undefined
         }
         afterName={
           <div style={{ ...cellBase, width: TRADE_W, padding: 0, overflow: "visible" }}>
-            {readOnly ? (
-              <span style={{ ...cellBase, width: TRADE_W, color: "var(--text-2)" }}>
-                {task.trade ?? "—"}
-              </span>
-            ) : (
+            {editable ? (
               <TradeCell
                 value={task.trade ?? ""}
                 trades={trades}
-                onCommit={(v) => onUpdate(task.id, { trade: v || null })}
+                dirty={has("trade")}
+                onCommit={(v) => onCell(base.id, { trade: v || null })}
               />
+            ) : (
+              <span style={{ ...cellBase, width: TRADE_W, color: "var(--text-2)" }}>
+                {task.trade ?? "—"}
+              </span>
             )}
           </div>
         }
       />
       <div style={floatStyle}>{float ?? "—"}</div>
       <div style={{ ...cellCenter, width: PCT_W, padding: 0, overflow: "visible" }}>
-        {readOnly ? (
-          <span style={{ color: "var(--text-2)" }}>{Math.round(task.percent_complete)}</span>
-        ) : (
+        {editable ? (
           <CellInput
             value={String(task.percent_complete)}
             type="number"
@@ -240,24 +262,66 @@ function Line({
             max={100}
             align="center"
             ariaLabel="Percent complete"
+            dirty={has("percent_complete")}
             onCommit={(v) => {
               const n = Number(v);
-              if (Number.isFinite(n) && n >= 0 && n <= 100) onUpdate(task.id, { percent_complete: n });
+              if (Number.isFinite(n) && n >= 0 && n <= 100)
+                onCell(base.id, { percent_complete: n });
             }}
           />
+        ) : (
+          <span style={{ color: "var(--text-2)" }}>{Math.round(task.percent_complete)}</span>
+        )}
+      </div>
+      <div style={{ ...cellCenter, width: STATUS_W, padding: 0, overflow: "visible" }}>
+        {editable ? (
+          <StatusCell
+            value={task.status}
+            dirty={has("status")}
+            onCommit={(v) => onCell(base.id, { status: v })}
+          />
+        ) : (
+          <span style={{ color: "var(--text-2)" }}>{statusLabel(task.status)}</span>
         )}
       </div>
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
-        {task.is_critical ? "●" : ""}
+        {base.is_critical ? "●" : ""}
       </div>
       <div style={{ ...cellBase, width: DEL_W }}>
-        {!readOnly && (
-          <button className="link-danger" onClick={() => onDelete(task.id)}>
+        {editable && (
+          <button className="link-danger" onClick={() => onDelete(base.id)}>
             delete
           </button>
         )}
       </div>
     </div>
+  );
+}
+
+// Status dropdown (edit mode). A native select keeps it familiar and keyboard-usable.
+function StatusCell({
+  value,
+  dirty,
+  onCommit,
+}: {
+  value: TaskStatus;
+  dirty?: boolean;
+  onCommit: (value: TaskStatus) => void;
+}) {
+  return (
+    <select
+      className={dirty ? "cell-select cell-select--dirty" : "cell-select"}
+      value={value}
+      aria-label="Status"
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => onCommit(e.target.value as TaskStatus)}
+    >
+      {STATUS_OPTS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -295,10 +359,12 @@ function fuzzyTrades(query: string, trades: string[]): string[] {
 function TradeCell({
   value,
   trades,
+  dirty,
   onCommit,
 }: {
   value: string;
   trades: string[];
+  dirty?: boolean;
   onCommit: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
@@ -322,7 +388,7 @@ function TradeCell({
   return (
     <div className="trade-cell">
       <input
-        className="cell-input"
+        className={dirty ? "cell-input cell-input--dirty" : "cell-input"}
         value={draft}
         placeholder="—"
         aria-label="Trade"

@@ -45,6 +45,24 @@ class TaskUpdate(BaseModel):
     force: bool = False
 
 
+class BulkTaskEdit(BaseModel):
+    """One task's changed fields in a batched ("Save all") spreadsheet edit.
+    `fields` reuses TaskUpdate so dates/status coerce and only writable fields are
+    accepted; its `expected_version` is the version the editor last saw for this row."""
+
+    task_id: int
+    fields: TaskUpdate
+
+
+class BulkTaskUpdate(BaseModel):
+    """A batch of task edits applied in one transaction with a single recalc.
+    `force` overwrites every row whose version changed underneath (the user chose
+    to overwrite after a conflict prompt)."""
+
+    edits: list[BulkTaskEdit]
+    force: bool = False
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

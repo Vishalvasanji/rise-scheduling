@@ -890,6 +890,63 @@ button {
   background: rgba(255, 159, 10, 0.1);
 }
 
+/* A row with unsaved edits in an edit session gets a left accent. */
+.task-grid__row--dirty {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+/* ---- Edit session (pencil → Save) --------------------------------------- */
+
+.edit-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+.edit-toggle {
+  font-weight: 600;
+}
+
+/* A cell holding an unsaved edit is tinted so the batch is easy to eyeball. */
+.cell-input--dirty,
+.cell-select--dirty,
+.date-rest--dirty {
+  background: rgba(0, 113, 227, 0.12);
+  border-radius: 8px;
+}
+
+.cell-select {
+  width: 100%;
+  height: 28px;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.cell-select:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.cell-select:focus {
+  outline: none;
+  background: var(--surface);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+}
+
 /* ---- Splash (loading / error) ------------------------------------------- */
 
 .splash {

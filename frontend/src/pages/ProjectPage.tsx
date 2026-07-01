@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ViewMode } from "gantt-task-react";
 import { GanttView } from "../components/GanttView";
 import { TaskTable } from "../components/TaskTable";
 import { ProposalReview } from "../components/ProposalReview";
 import { ConflictDialog } from "../components/ConflictDialog";
-import { ConfirmChangeDialog } from "../components/ConfirmChangeDialog";
+import { BulkConflictDialog } from "../components/BulkConflictDialog";
 import { useSchedule } from "../hooks/useSchedule";
+import type { BulkConflict } from "../hooks/useSchedule";
 import { useProposal } from "../hooks/useProposal";
 import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
-import { addDaysISO, businessDays, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
+import { addDaysISO, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
+import type { BulkEdit } from "../api/schedule";
 import type { ChangeType, TaskOut } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
@@ -23,45 +25,14 @@ const RANGES: { key: ScheduleRange; label: string }[] = [
   { key: "2week", label: "2-Week" },
 ];
 
+// Stable empty draft for when no edit session is active (so display overlays off).
+const NO_DRAFT: Map<number, Partial<TaskOut>> = new Map();
+
 // A task is "in" a window if its planned span overlaps it (so work that started
 // earlier but is still running shows up).
 function overlaps(t: TaskOut, startIso: string, endIso: string): boolean {
   if (!t.planned_start || !t.planned_finish) return false;
   return t.planned_start <= endIso && t.planned_finish >= startIso;
-}
-
-// A change awaiting the user's confirmation before it's written.
-interface PendingEdit {
-  taskName: string;
-  lines: string[];
-  run: () => Promise<boolean>;
-  resolve: (ok: boolean) => void;
-}
-
-// Fields that reschedule a task — these route through the confirm modal.
-const DATE_DUR_FIELDS = [
-  "actual_start",
-  "actual_finish",
-  "start_no_earlier_than",
-  "duration_days",
-] as const;
-
-const day = (v: string | null | undefined) => (v ? mmddyy(v) : "—");
-
-// Human-readable summary of a date/duration change, for the confirm modal.
-function describeEdit(t: TaskOut, fields: Partial<TaskOut>): string[] {
-  const lines: string[] = [];
-  if ("start_no_earlier_than" in fields || "actual_start" in fields) {
-    const nv = (fields.actual_start ?? fields.start_no_earlier_than) as string | null;
-    lines.push(`Start ${day(t.planned_start)} → ${day(nv)}`);
-  }
-  if ("actual_finish" in fields) {
-    lines.push(`Finish ${day(t.planned_finish)} → ${day(fields.actual_finish as string | null)}`);
-  }
-  if ("duration_days" in fields) {
-    lines.push(`Duration ${t.duration_days} → ${fields.duration_days} days`);
-  }
-  return lines;
 }
 
 export function ProjectPage({
@@ -71,18 +42,30 @@ export function ProjectPage({
   projectId: number;
   tab: "gantt" | "grid";
 }) {
-  const { schedule, loading, error, conflict, dismissConflict, refresh, updateTask, removeTask } =
-    useSchedule(projectId);
+  // Edit-session ("spreadsheet") state: the grid/Gantt list are read-only until
+  // the pencil starts a session; edits stage into `draft` and Save pushes the
+  // whole batch at once. Polling is paused while editing so nothing shifts under us.
+  const [editMode, setEditMode] = useState(false);
+  const [draft, setDraft] = useState<Map<number, Partial<TaskOut>>>(new Map());
+  const baseVersions = useRef<Map<number, number>>(new Map());
+  const [saving, setSaving] = useState(false);
+  const [bulkConflicts, setBulkConflicts] = useState<BulkConflict[] | null>(null);
+
+  const {
+    schedule,
+    loading,
+    error,
+    conflict,
+    dismissConflict,
+    refresh,
+    removeTask,
+    saveBulk,
+  } = useSchedule(projectId, editMode);
   const { proposal, busy, apply, discard, undoLast } = useProposal(projectId, refresh);
   const [view, setView] = useState<ViewMode>(ViewMode.Month);
   const [range, setRange] = useState<ScheduleRange>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [reviewing, setReviewing] = useState(false);
-  const [pending, setPending] = useState<PendingEdit | null>(null);
-  const [pendingBusy, setPendingBusy] = useState(false);
-  // Bumped when a grid date/duration edit is cancelled, to remount the grid so a
-  // typed-but-unconfirmed value snaps back to the server value.
-  const [gridNonce, setGridNonce] = useState(0);
   const { ref: regionRef, height } = useElementSize<HTMLDivElement>();
 
   // Picking a window also drops to a readable zoom; the user can still re-zoom.
@@ -115,6 +98,86 @@ export function ProjectPage({
       return next;
     });
   }, []);
+
+  // ---- edit session -----------------------------------------------------------
+  const setCell = useCallback((taskId: number, fields: Partial<TaskOut>) => {
+    setDraft((prev) => {
+      const next = new Map(prev);
+      next.set(taskId, { ...(next.get(taskId) ?? {}), ...fields });
+      return next;
+    });
+  }, []);
+
+  const startEdit = useCallback(() => {
+    const versions = new Map<number, number>();
+    for (const t of schedule?.tasks ?? []) versions.set(t.id, t.version);
+    baseVersions.current = versions;
+    setDraft(new Map());
+    setBulkConflicts(null);
+    setEditMode(true);
+  }, [schedule]);
+
+  const cancelEdit = useCallback(() => {
+    setDraft(new Map());
+    setBulkConflicts(null);
+    setEditMode(false);
+  }, []);
+
+  const draftCount = draft.size;
+
+  const save = useCallback(
+    async (force = false) => {
+      const edits: BulkEdit[] = Array.from(draft.entries())
+        .filter(([, f]) => Object.keys(f).length > 0)
+        .map(([task_id, f]) => ({
+          task_id,
+          fields: { ...f, expected_version: baseVersions.current.get(task_id) },
+        }));
+      if (edits.length === 0) {
+        setEditMode(false);
+        return;
+      }
+      setSaving(true);
+      const res = await saveBulk(edits, force);
+      setSaving(false);
+      if (res.ok) {
+        setDraft(new Map());
+        setBulkConflicts(null);
+        setEditMode(false);
+      } else if (res.conflicts && res.conflicts.length > 0) {
+        setBulkConflicts(res.conflicts);
+      }
+      // Other errors surface in the banner; stay in the session with the draft intact.
+    },
+    [draft, saveBulk],
+  );
+
+  // Delete applies immediately; drop any staged edits for that row so a later Save
+  // doesn't reference a task that no longer exists.
+  const handleDelete = useCallback(
+    (taskId: number) => {
+      setDraft((prev) => {
+        if (!prev.has(taskId)) return prev;
+        const next = new Map(prev);
+        next.delete(taskId);
+        return next;
+      });
+      baseVersions.current.delete(taskId);
+      void removeTask(taskId);
+    },
+    [removeTask],
+  );
+
+  // Warn before a full page unload with unsaved edits.
+  useEffect(() => {
+    if (!editMode || draftCount === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [editMode, draftCount]);
 
   const review = reviewing && !!proposal;
   // In review mode the Gantt/grid render the *proposed* schedule; otherwise the
@@ -162,62 +225,6 @@ export function ProjectPage({
   if (loading && !schedule) return <p className="muted">Loading…</p>;
   if (!schedule || !source) return <p className="muted">No schedule.</p>;
 
-  // Every date/duration change is confirmed before it's written. Non-date edits
-  // (name, trade, %, status) apply immediately. Returns whether it was applied, so
-  // the Gantt can revert the bar on cancel/failure.
-  const requestEdit = (taskId: number, fields: Partial<TaskOut>): Promise<boolean> => {
-    const t = source.tasks.find((x) => x.id === taskId);
-    const touchesSchedule = Object.keys(fields).some((k) =>
-      (DATE_DUR_FIELDS as readonly string[]).includes(k),
-    );
-    if (!t || !touchesSchedule) return updateTask(taskId, fields);
-    const lines = describeEdit(t, fields);
-    if (lines.length === 0) return Promise.resolve(true); // nothing actually changed
-    return new Promise<boolean>((resolve) => {
-      setPending({ taskName: t.name, lines, resolve, run: () => updateTask(taskId, fields) });
-    });
-  };
-
-  const confirmPending = async () => {
-    if (!pending) return;
-    setPendingBusy(true);
-    const ok = await pending.run();
-    pending.resolve(ok);
-    setPending(null);
-    setPendingBusy(false);
-  };
-
-  const cancelPending = () => {
-    if (!pending) return;
-    pending.resolve(false); // Gantt reverts the bar; grid date cell reverts on its own
-    setPending(null);
-    setGridNonce((n) => n + 1); // remount the grid so a typed duration snaps back
-  };
-
-  // Dragging/resizing a Gantt bar reschedules: a not-yet-started task moves via the
-  // planning constraint, a started task edits its actual start; the span sets duration.
-  const handleGanttDateChange = (taskId: number, start: Date, end: Date): Promise<boolean> => {
-    const t = source.tasks.find((x) => x.id === taskId);
-    if (!t) return Promise.resolve(false);
-    const newStart = toISODate(start);
-    const fields: Partial<TaskOut> = {};
-    if (newStart !== t.planned_start) {
-      if (t.actual_start) fields.actual_start = newStart;
-      else fields.start_no_earlier_than = newStart;
-    }
-    if (!t.is_milestone) {
-      const newDur = businessDays(start, end);
-      if (newDur > 0 && newDur !== t.duration_days) fields.duration_days = newDur;
-    }
-    if (Object.keys(fields).length === 0) return Promise.resolve(true); // no-op
-    return requestEdit(taskId, fields);
-  };
-
-  // Grid edits route through the same confirm flow (date/duration) or apply directly.
-  const handleGridUpdate = (taskId: number, fields: Partial<TaskOut>) => {
-    void requestEdit(taskId, fields);
-  };
-
   const dependencies = source.dependencies;
   const criticalCount = (viewTasks ?? source.tasks).filter((t) => t.is_critical).length;
   const hasGroups = groupIds.length > 0;
@@ -241,13 +248,12 @@ export function ProjectPage({
         />
       )}
 
-      {pending && (
-        <ConfirmChangeDialog
-          taskName={pending.taskName}
-          lines={pending.lines}
-          busy={pendingBusy}
-          onConfirm={confirmPending}
-          onCancel={cancelPending}
+      {bulkConflicts && (
+        <BulkConflictDialog
+          conflicts={bulkConflicts}
+          busy={saving}
+          onOverwrite={() => void save(true)}
+          onCancel={() => setBulkConflicts(null)}
         />
       )}
 
@@ -278,6 +284,31 @@ export function ProjectPage({
           <span />
         )}
         <div className="toolbar__right">
+          {!review && (
+            <div className="edit-control">
+              {editMode ? (
+                <>
+                  <span className="edit-hint">
+                    Editing{draftCount ? ` · ${draftCount} changed` : ""}
+                  </span>
+                  <button className="btn-ghost" onClick={cancelEdit} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => void save()}
+                    disabled={saving || draftCount === 0}
+                  >
+                    {saving ? "Saving…" : `Save${draftCount ? ` (${draftCount})` : ""}`}
+                  </button>
+                </>
+              ) : (
+                <button className="btn-ghost edit-toggle" onClick={startEdit}>
+                  ✏️ Edit
+                </button>
+              )}
+            </div>
+          )}
           {tab === "gantt" && (
             <div className="legend">
               {review ? (
@@ -326,7 +357,9 @@ export function ProjectPage({
             dependencies={dependencies}
             collapsed={collapsed}
             onToggle={toggle}
-            onDateChange={handleGanttDateChange}
+            editMode={editMode && !review}
+            draft={editMode && !review ? draft : NO_DRAFT}
+            onCell={setCell}
             viewMode={view}
             height={height}
             changeStatus={review ? changeStatus : undefined}
@@ -341,13 +374,14 @@ export function ProjectPage({
         ) : (
           <div className="table-scroll">
             <TaskTable
-              key={gridNonce}
               rows={shown}
               trades={trades}
               collapsed={collapsed}
               onToggle={toggle}
-              onUpdate={handleGridUpdate}
-              onDelete={removeTask}
+              editMode={editMode && !review}
+              draft={editMode && !review ? draft : NO_DRAFT}
+              onCell={setCell}
+              onDelete={handleDelete}
               changeStatus={review ? changeStatus : undefined}
             />
           </div>

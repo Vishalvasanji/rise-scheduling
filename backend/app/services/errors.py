@@ -25,3 +25,14 @@ class ConflictError(Exception):
             f"Task {task_id} was changed by {updated_by or 'someone'} "
             f"(now version {current_version})"
         )
+
+
+class BulkConflictError(Exception):
+    """Raised by a batched ("Save all") edit when one or more rows changed
+    underneath since editing began. Carries every conflicting row so the UI can
+    list them and offer to overwrite. Nothing is applied when this is raised."""
+
+    def __init__(self, conflicts: list[dict]) -> None:
+        self.conflicts = conflicts
+        n = len(conflicts)
+        super().__init__(f"{n} task{'s' if n != 1 else ''} changed since you started editing")

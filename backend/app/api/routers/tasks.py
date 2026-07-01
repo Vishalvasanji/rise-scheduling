@@ -7,8 +7,9 @@ from fastapi import APIRouter, status
 
 from app.api.authz import assert_project_access, assert_task_access
 from app.api.deps import CurrentUserDep, SessionDep
-from app.schemas.task import TaskCreate, TaskOut, TaskUpdate
-from app.services import scheduling_service
+from app.schemas.project import ScheduleOut
+from app.schemas.task import BulkTaskUpdate, TaskCreate, TaskOut, TaskUpdate
+from app.services import project_service, scheduling_service
 
 router = APIRouter(tags=["tasks"])
 
@@ -37,6 +38,34 @@ def update_task(task_id: int, payload: TaskUpdate, session: SessionDep, user: Cu
         expected_version=expected_version, force=force,
     )
     return task
+
+
+@router.post("/projects/{project_id}/tasks/bulk", response_model=ScheduleOut)
+def bulk_update_tasks(
+    project_id: int, payload: BulkTaskUpdate, session: SessionDep, user: CurrentUserDep
+):
+    """Apply a whole spreadsheet's worth of edits at once (the "Save" button): one
+    transaction, one recalc, one audit entry per row. Returns the recomputed
+    schedule so the client refreshes in a single round trip."""
+    assert_project_access(session, user, project_id)
+    edits = [
+        {
+            "task_id": e.task_id,
+            "fields": {
+                k: v
+                for k, v in e.fields.model_dump(exclude_unset=True).items()
+                if k not in ("expected_version", "force")
+            },
+            "expected_version": e.fields.expected_version,
+        }
+        for e in payload.edits
+    ]
+    scheduling_service.bulk_update_tasks(
+        session, project_id, edits, actor=user.email, force=payload.force
+    )
+    result = project_service.get_schedule(session, project_id)
+    project, tasks, deps = result
+    return ScheduleOut(project=project, tasks=tasks, dependencies=deps)
 
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
