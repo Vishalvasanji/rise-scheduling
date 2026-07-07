@@ -37,10 +37,11 @@ def run_migrations_online() -> None:
     from app.db.engine import get_engine, wait_for_db
 
     connectable = get_engine()
-    # A cold deploy may hit a transient gateway error on the very first connect
-    # (e.g. Turso/libSQL Hrana 502); retry with backoff before migrating so the
-    # boot chain doesn't abort on a blip.
-    wait_for_db(connectable)
+    # A cold deploy may 502 on the first connect while a sleeping Turso/libSQL
+    # instance wakes, which can outlast a short retry. This step runs before
+    # uvicorn binds a port, so wait a generous window (~2.5 min: 1,2,4,8,16, then
+    # 20s each) to ride out the cold start rather than aborting the boot chain.
+    wait_for_db(connectable, attempts=12, base_delay=1.0, max_delay=20.0)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
