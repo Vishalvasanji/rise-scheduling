@@ -1,29 +1,44 @@
 diff --git a/node_modules/gantt-task-react/dist/index.js b/node_modules/gantt-task-react/dist/index.js
-index 626bb39..43ed690 100644
+index 626bb39..21eb07b 100644
 --- a/node_modules/gantt-task-react/dist/index.js
 +++ b/node_modules/gantt-task-react/dist/index.js
-@@ -762,9 +762,9 @@ var Calendar = function Calendar(_ref) {
+@@ -638,8 +638,11 @@ var GridBody = function GridBody(_ref) {
+     }));
+ 
+     if (i + 1 !== dates.length && date.getTime() < now.getTime() && dates[i + 1].getTime() >= now.getTime() || i !== 0 && i + 1 === dates.length && date.getTime() < now.getTime() && addToDate(date, date.getTime() - dates[i - 1].getTime(), "millisecond").getTime() >= now.getTime()) {
++      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
++      var todayNext = i + 1 < dates.length ? dates[i + 1].getTime() : addToDate(date, date.getTime() - dates[i - 1].getTime(), "millisecond").getTime();
++      var todayFrac = Math.min(1, Math.max(0, (todayStart.getTime() - date.getTime()) / (todayNext - date.getTime())));
+       today = React__default.createElement("rect", {
+-        x: tickX,
++        x: tickX + columnWidth * todayFrac,
+         y: 0,
+         width: columnWidth,
+         height: y,
+@@ -762,9 +765,11 @@ var Calendar = function Calendar(_ref) {
  
      for (var i = 0; i < dateSetup.dates.length; i++) {
        var date = dateSetup.dates[i];
 -      var bottomValue = getLocaleMonth(date, locale);
-+      var bottomValue = getDaysInMonth(date.getMonth(), date.getFullYear()).toString();
++      var bottomValue = getCachedDateTimeFormat(locale, {
++        month: "short"
++      }).format(date);
        bottomValues.push(React__default.createElement("text", {
 -        key: bottomValue + date.getFullYear(),
 +        key: date.getMonth() + "-" + date.getFullYear(),
          y: headerHeight * 0.8,
          x: columnWidth * i + columnWidth * 0.5,
          className: styles$5.calendarBottomText
-@@ -810,7 +810,7 @@ var Calendar = function Calendar(_ref) {
+@@ -810,7 +815,7 @@ var Calendar = function Calendar(_ref) {
          topValue = getLocaleMonth(date, locale) + ", " + date.getFullYear();
        }
  
 -      var bottomValue = "W" + getWeekNumberISO8601(date);
-+      var bottomValue = new Date(date.getFullYear(), date.getMonth(), date.getDate() + (7 - date.getDay()) % 7).getDate().toString();
++      var bottomValue = date.getDate().toString();
        bottomValues.push(React__default.createElement("text", {
          key: date.getTime(),
          y: headerHeight * 0.8,
-@@ -848,7 +848,7 @@ var Calendar = function Calendar(_ref) {
+@@ -848,7 +853,7 @@ var Calendar = function Calendar(_ref) {
  
      for (var i = 0; i < dates.length; i++) {
        var date = dates[i];
@@ -33,31 +48,46 @@ index 626bb39..43ed690 100644
          key: date.getTime(),
          y: headerHeight * 0.8,
 diff --git a/node_modules/gantt-task-react/dist/index.modern.js b/node_modules/gantt-task-react/dist/index.modern.js
-index b372269..52f07d6 100644
+index b372269..0ea274e 100644
 --- a/node_modules/gantt-task-react/dist/index.modern.js
 +++ b/node_modules/gantt-task-react/dist/index.modern.js
-@@ -761,9 +761,9 @@ var Calendar = function Calendar(_ref) {
+@@ -637,8 +637,11 @@ var GridBody = function GridBody(_ref) {
+     }));
+ 
+     if (i + 1 !== dates.length && date.getTime() < now.getTime() && dates[i + 1].getTime() >= now.getTime() || i !== 0 && i + 1 === dates.length && date.getTime() < now.getTime() && addToDate(date, date.getTime() - dates[i - 1].getTime(), "millisecond").getTime() >= now.getTime()) {
++      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
++      var todayNext = i + 1 < dates.length ? dates[i + 1].getTime() : addToDate(date, date.getTime() - dates[i - 1].getTime(), "millisecond").getTime();
++      var todayFrac = Math.min(1, Math.max(0, (todayStart.getTime() - date.getTime()) / (todayNext - date.getTime())));
+       today = React.createElement("rect", {
+-        x: tickX,
++        x: tickX + columnWidth * todayFrac,
+         y: 0,
+         width: columnWidth,
+         height: y,
+@@ -761,9 +764,11 @@ var Calendar = function Calendar(_ref) {
  
      for (var i = 0; i < dateSetup.dates.length; i++) {
        var date = dateSetup.dates[i];
 -      var bottomValue = getLocaleMonth(date, locale);
-+      var bottomValue = getDaysInMonth(date.getMonth(), date.getFullYear()).toString();
++      var bottomValue = getCachedDateTimeFormat(locale, {
++        month: "short"
++      }).format(date);
        bottomValues.push(React.createElement("text", {
 -        key: bottomValue + date.getFullYear(),
 +        key: date.getMonth() + "-" + date.getFullYear(),
          y: headerHeight * 0.8,
          x: columnWidth * i + columnWidth * 0.5,
          className: styles$5.calendarBottomText
-@@ -809,7 +809,7 @@ var Calendar = function Calendar(_ref) {
+@@ -809,7 +814,7 @@ var Calendar = function Calendar(_ref) {
          topValue = getLocaleMonth(date, locale) + ", " + date.getFullYear();
        }
  
 -      var bottomValue = "W" + getWeekNumberISO8601(date);
-+      var bottomValue = new Date(date.getFullYear(), date.getMonth(), date.getDate() + (7 - date.getDay()) % 7).getDate().toString();
++      var bottomValue = date.getDate().toString();
        bottomValues.push(React.createElement("text", {
          key: date.getTime(),
          y: headerHeight * 0.8,
-@@ -847,7 +847,7 @@ var Calendar = function Calendar(_ref) {
+@@ -847,7 +852,7 @@ var Calendar = function Calendar(_ref) {
  
      for (var i = 0; i < dates.length; i++) {
        var date = dates[i];

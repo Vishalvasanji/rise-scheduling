@@ -1156,19 +1156,16 @@ button {
   fill: var(--text-2);
 }
 
-/* Calendar labels sit on their gridline, not centered in the cell. The library
+/* Day-view labels sit on their gridline, not centered in the cell. The library
    places each bottom label (._9w8d5) at the cell CENTER (columnWidth*i +
-   columnWidth*0.5) while the vertical gridline — the real day/month boundary a
-   bar starts on — is at the cell's LEFT edge (columnWidth*i). Nudge the label
-   left by half a column so it lands on its line. The shift is half of
-   GanttView's per-view columnWidth (Day 30 → 15, Month 200 → 100). Week labels
-   are already placed at the left edge by the library, so they need no nudge. */
+   columnWidth*0.5) while the vertical gridline — the real day boundary a bar
+   starts on — is at the cell's LEFT edge (columnWidth*i). Nudge the day label
+   left by half a column (GanttView's Day columnWidth is 30 → 15) so it lands on
+   its line. Month view now shows the month NAME centered over its span, and Week
+   view shows the week-starting date already placed at the left edge, so neither
+   needs a nudge. */
 .schedule-region .gantt-cal[data-view="day"] text._9w8d5 {
   transform: translateX(-15px);
-}
-
-.schedule-region .gantt-cal[data-view="month"] text._9w8d5 {
-  transform: translateX(-100px);
 }
 
 /* The library defaults its SVG text to Arial; force the app font so the chart's

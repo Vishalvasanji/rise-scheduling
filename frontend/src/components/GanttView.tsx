@@ -416,16 +416,12 @@ export function GanttView({
 
   return (
     <MetaContext.Provider value={metaValue}>
-      {/* data-view drives a CSS nudge that re-centers the Day- and Month-view
-          date labels onto their gridlines (the library centers them in the
-          cell; Week labels already sit on the line). See .gantt-cal[data-view]
-          in styles.css. */}
-      <div
-        className="gantt-cal"
-        data-view={
-          viewMode === ViewMode.Day ? "day" : viewMode === ViewMode.Month ? "month" : "wide"
-        }
-      >
+      {/* data-view drives a CSS nudge that re-centers the Day-view date labels
+          onto their gridlines (the library centers them in the cell). Month
+          shows a centered month name and Week shows the week-start date on its
+          line, so neither needs the hook. See .gantt-cal[data-view] in
+          styles.css. */}
+      <div className="gantt-cal" data-view={viewMode === ViewMode.Day ? "day" : "wide"}>
       <Gantt
         tasks={ganttTasks}
         viewMode={viewMode}
