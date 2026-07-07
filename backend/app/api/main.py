@@ -4,6 +4,9 @@ that translate engine errors into HTTP responses (cycle -> 409, date conflict
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,9 +26,20 @@ from app.engine.errors import CircularDependencyError, DateConflictError, Schedu
 from app.services.errors import BulkConflictError, ConflictError
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # The first DB connect on a cold deploy can hit a transient gateway error
+    # (e.g. Turso/libSQL Hrana 502); retry with backoff before serving so uvicorn
+    # doesn't crash the container on a blip.
+    from app.db.engine import wait_for_db
+
+    wait_for_db()
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="RISE Schedule Hub API", version="0.1.0")
+    app = FastAPI(title="RISE Schedule Hub API", version="0.1.0", lifespan=lifespan)
 
     # FRONTEND_ORIGIN may be a comma-separated list (e.g. the Vercel prod URL plus
     # localhost for dev), so the same backend serves local and hosted front ends.

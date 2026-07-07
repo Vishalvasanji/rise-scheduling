@@ -7,12 +7,16 @@ Turso (libSQL) or Postgres is a change to ``DATABASE_URL`` only. SQLite needs
 
 from __future__ import annotations
 
+import logging
+import time
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
@@ -74,3 +78,39 @@ def get_session_factory() -> sessionmaker[Session]:
             bind=get_engine(), autoflush=False, expire_on_commit=False, future=True
         )
     return _SessionLocal
+
+
+def wait_for_db(
+    engine: Engine | None = None, *, attempts: int = 6, base_delay: float = 1.0
+) -> None:
+    """Block until the database answers a trivial query, retrying transient
+    failures with exponential backoff.
+
+    A networked database (Turso/libSQL) can briefly reject the *first* connection
+    on a cold deploy — e.g. Hrana ``502 upstream forward failed``, which surfaces
+    through the libSQL dialect as a bare ``ValueError``. Without this, that blip
+    aborts the whole boot chain (``alembic upgrade`` then ``uvicorn``). We retry a
+    handful of times (delays 1s, 2s, 4s, 8s, 16s ≈ 31s total) before giving up.
+    Local SQLite connects instantly, so the common case returns on the first try.
+    """
+    engine = engine or get_engine()
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return
+        except Exception as exc:  # noqa: BLE001 — libSQL raises gateway errors as ValueError
+            last_exc = exc
+            if attempt == attempts:
+                break
+            delay = base_delay * 2 ** (attempt - 1)
+            logger.warning(
+                "Database not ready (attempt %d/%d): %s — retrying in %.1fs",
+                attempt,
+                attempts,
+                exc,
+                delay,
+            )
+            time.sleep(delay)
+    raise RuntimeError(f"Database unreachable after {attempts} attempts") from last_exc
