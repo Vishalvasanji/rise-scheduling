@@ -34,9 +34,13 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     # Reuse the application's engine builder so libSQL/Turso auth (and the
     # SQLite-only tweaks) are applied identically to migrations and the app.
-    from app.db.engine import get_engine
+    from app.db.engine import get_engine, wait_for_db
 
     connectable = get_engine()
+    # A cold deploy may hit a transient gateway error on the very first connect
+    # (e.g. Turso/libSQL Hrana 502); retry with backoff before migrating so the
+    # boot chain doesn't abort on a blip.
+    wait_for_db(connectable)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
