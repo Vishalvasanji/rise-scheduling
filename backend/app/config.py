@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     # Data-access layer — the single DB swap point (SQLite -> Turso/Postgres).
     database_url: str = "sqlite:///./rise_schedule.db"
 
+    # When true (hosted default), the API migrates + seeds in a background task on
+    # startup so boot never blocks on the DB. Set false to manage migrations
+    # yourself (local dev, CI) — the app then assumes the schema is already there.
+    migrate_on_startup: bool = True
+
     # Auth (pilot only, behind one swappable module).
     auth_mode: str = "jwt"
     auth_secret: str = "change-me-in-real-deployments-this-is-a-pilot-dummy-secret"

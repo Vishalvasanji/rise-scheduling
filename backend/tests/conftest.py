@@ -14,6 +14,9 @@ import pytest
 _TMP = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _TMP.close()
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP.name}"
+# Tests build the schema from ORM metadata below; never let the app's startup
+# migrate/seed run against the throwaway DB (it would double-create and pollute).
+os.environ["MIGRATE_ON_STARTUP"] = "false"
 
 from app.db.base import Base  # noqa: E402
 from app.db.engine import get_engine  # noqa: E402
