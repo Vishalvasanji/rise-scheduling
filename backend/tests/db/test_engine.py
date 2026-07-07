@@ -51,3 +51,14 @@ def test_wait_for_db_gives_up_after_attempts(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(RuntimeError, match="unreachable after 3 attempts"):
         wait_for_db(eng, attempts=3, base_delay=0.01)  # type: ignore[arg-type]
     assert eng.calls == 3  # no extra attempt beyond the cap
+
+
+def test_wait_for_db_caps_backoff_at_max_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr(engine_mod.time, "sleep", lambda s: slept.append(s))
+    eng = _FlakyEngine(fails=99)
+    with pytest.raises(RuntimeError):
+        wait_for_db(eng, attempts=8, base_delay=1.0, max_delay=5.0)  # type: ignore[arg-type]
+    # 7 sleeps (one per failed attempt except the last), exponential then clamped to 5.0.
+    assert slept == [1.0, 2.0, 4.0, 5.0, 5.0, 5.0, 5.0]
+    assert max(slept) <= 5.0

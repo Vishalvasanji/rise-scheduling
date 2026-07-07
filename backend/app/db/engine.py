@@ -81,17 +81,24 @@ def get_session_factory() -> sessionmaker[Session]:
 
 
 def wait_for_db(
-    engine: Engine | None = None, *, attempts: int = 6, base_delay: float = 1.0
+    engine: Engine | None = None,
+    *,
+    attempts: int = 6,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
 ) -> None:
     """Block until the database answers a trivial query, retrying transient
-    failures with exponential backoff.
+    failures with exponential backoff (each delay capped at ``max_delay``).
 
-    A networked database (Turso/libSQL) can briefly reject the *first* connection
-    on a cold deploy — e.g. Hrana ``502 upstream forward failed``, which surfaces
-    through the libSQL dialect as a bare ``ValueError``. Without this, that blip
-    aborts the whole boot chain (``alembic upgrade`` then ``uvicorn``). We retry a
-    handful of times (delays 1s, 2s, 4s, 8s, 16s ≈ 31s total) before giving up.
-    Local SQLite connects instantly, so the common case returns on the first try.
+    A networked database (Turso/libSQL) can reject connections for a while on a
+    cold deploy — e.g. Hrana ``502 upstream forward failed`` while a sleeping
+    instance wakes, which surfaces through the libSQL dialect as a bare
+    ``ValueError``. Without this, that blip aborts the whole boot chain
+    (``alembic upgrade`` then ``uvicorn``). Callers pick the window: the migration
+    step waits several minutes (a cold wake can outlast 31s), while the app's
+    lifespan keeps the default short window since migrations have already proven
+    the DB is warm by then. Local SQLite connects instantly, so the common case
+    returns on the first try.
     """
     engine = engine or get_engine()
     last_exc: Exception | None = None
@@ -104,7 +111,7 @@ def wait_for_db(
             last_exc = exc
             if attempt == attempts:
                 break
-            delay = base_delay * 2 ** (attempt - 1)
+            delay = min(base_delay * 2 ** (attempt - 1), max_delay)
             logger.warning(
                 "Database not ready (attempt %d/%d): %s — retrying in %.1fs",
                 attempt,
