@@ -14,8 +14,10 @@ COPY . .
 
 EXPOSE 8000
 
-# On boot: apply migrations, seed dummy data only if the DB is empty, ensure the
-# Lake Jackson demo project and the admin account exist (idempotent — created once,
-# never clobbers edits), then serve. Bind to $PORT when the host provides it (Render),
-# else default 8000. (MCP server is launched separately: python -m app.mcp.server)
-CMD ["sh", "-c", "alembic upgrade head && python -m app.seed.run_seed --if-empty && python -m app.seed.lake_jackson && python -m app.seed.admin_user && uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Serve immediately. Migrations + idempotent seeds (dummy data only if empty, plus
+# the Lake Jackson demo project and admin account — created once, never clobbering
+# edits) run in a background task inside the app (see app/api/main.py lifespan), so a
+# cold/cross-region Turso can't fail the boot; DB routes return 503 until it's ready.
+# Bind to $PORT when the host provides it (Render), else 8000. (MCP server is launched
+# separately: python -m app.mcp.server)
+CMD ["sh", "-c", "uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

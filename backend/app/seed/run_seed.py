@@ -15,8 +15,8 @@ from app.seed.seed_data import seed_all
 from app.services import auth_service
 
 
-def main() -> None:
-    if_empty = "--if-empty" in sys.argv
+def main(if_empty: bool = False) -> None:
+    if_empty = if_empty or "--if-empty" in sys.argv
     with session_scope() as session:
         if if_empty and project_repo.list_all(session):
             print("Projects already exist; skipping seed (--if-empty).")
