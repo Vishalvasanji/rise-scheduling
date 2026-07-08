@@ -50,10 +50,10 @@ export function ProjectPage({
   const baseVersions = useRef<Map<number, number>>(new Map());
   const [saving, setSaving] = useState(false);
   const [bulkConflicts, setBulkConflicts] = useState<BulkConflict[] | null>(null);
-  // Post-save confirmation toast; auto-dismisses.
-  const [savedToast, setSavedToast] = useState(false);
-  const toastTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  // Post-save confirmation banner; auto-dismisses, closable early via its ✕.
+  const [savedBanner, setSavedBanner] = useState(false);
+  const savedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   const {
     schedule,
@@ -148,9 +148,9 @@ export function ProjectPage({
         setDraft(new Map());
         setBulkConflicts(null);
         setEditMode(false);
-        setSavedToast(true);
-        window.clearTimeout(toastTimer.current);
-        toastTimer.current = window.setTimeout(() => setSavedToast(false), 2800);
+        setSavedBanner(true);
+        window.clearTimeout(savedTimer.current);
+        savedTimer.current = window.setTimeout(() => setSavedBanner(false), 5000);
       } else if (res.conflicts && res.conflicts.length > 0) {
         setBulkConflicts(res.conflicts);
       }
@@ -314,8 +314,8 @@ export function ProjectPage({
       )}
 
       {editMode && !review && (
-        <div className="edit-mode-banner">
-          <span className="edit-mode-banner__dot" />
+        <div className="edit-mode-banner" role="status" aria-live="polite">
+          {saving ? <span className="spinner" aria-hidden /> : <span className="edit-mode-banner__dot" />}
           <span className="edit-mode-banner__text">
             {saving
               ? "Saving changes…"
@@ -329,15 +329,20 @@ export function ProjectPage({
         </div>
       )}
 
-      {saving && (
-        <div className="status-pill status-pill--saving" role="status" aria-live="polite">
-          <span className="spinner" aria-hidden />
-          Saving changes…
-        </div>
-      )}
-      {savedToast && !saving && (
-        <div className="status-pill status-pill--saved" role="status" aria-live="polite">
-          ✓ Changes saved
+      {savedBanner && !editMode && (
+        <div className="edit-mode-banner edit-mode-banner--saved" role="status" aria-live="polite">
+          <span className="edit-mode-banner__dot" />
+          <span className="edit-mode-banner__text">✓ Changes saved</span>
+          <button
+            className="edit-mode-banner__close"
+            aria-label="Dismiss"
+            onClick={() => {
+              window.clearTimeout(savedTimer.current);
+              setSavedBanner(false);
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 

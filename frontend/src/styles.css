@@ -1024,46 +1024,38 @@ button {
   color: var(--text-2);
 }
 
-/* Save feedback: a floating pill pinned bottom-center — "Saving…" with a spinner
-   while the batch is in flight, then a green "Changes saved" confirmation that
-   auto-dismisses. Fixed position so it's visible wherever the grid is scrolled. */
-.status-pill {
-  position: fixed;
-  bottom: 26px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1200;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 500;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
-  animation: status-pill-in 0.18s ease-out;
+/* Save feedback lives in the banner: while saving, the dot becomes a spinner and
+   the text reads "Saving changes…"; on success the banner turns green ("✓ Changes
+   saved"), auto-dismisses, and can be closed early with its ✕. */
+.edit-mode-banner--saved {
+  background: rgba(52, 199, 89, 0.09);
+  border-color: rgba(52, 199, 89, 0.35);
 }
 
-.status-pill--saving {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--separator-strong);
-}
-
-.status-pill--saved {
+.edit-mode-banner--saved .edit-mode-banner__dot {
   background: var(--green-ink);
-  color: #ffffff;
 }
 
-@keyframes status-pill-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
+.edit-mode-banner--saved .edit-mode-banner__text {
+  color: var(--green-ink);
+  font-weight: 500;
+}
+
+.edit-mode-banner__close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.edit-mode-banner__close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
 }
 
 .spinner {
