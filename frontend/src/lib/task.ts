@@ -1,5 +1,6 @@
 // Small task helpers shared by the grid and the Gantt.
 
+import { addBusinessDays } from "./dates";
 import type { TaskOut } from "../types/schedule";
 
 // Has work on this task actually begun? Used to decide whether editing a start
@@ -22,7 +23,18 @@ export function applyDraft(t: TaskOut, d?: Partial<TaskOut>): TaskOut {
   if ("actual_start" in d && d.actual_start) out.planned_start = d.actual_start;
   else if ("start_no_earlier_than" in d && d.start_no_earlier_than)
     out.planned_start = d.start_no_earlier_than;
-  if ("actual_finish" in d && d.actual_finish) out.planned_finish = d.actual_finish;
+  // An explicit To edit wins; otherwise changing Days (or the start) slides the
+  // finish to start + duration working days, so the To column tracks Days live.
+  if ("actual_finish" in d && d.actual_finish) {
+    out.planned_finish = d.actual_finish;
+  } else if (
+    ("duration_days" in d || "actual_start" in d || "start_no_earlier_than" in d) &&
+    !out.is_milestone &&
+    out.planned_start &&
+    out.duration_days
+  ) {
+    out.planned_finish = addBusinessDays(out.planned_start, out.duration_days);
+  }
   return out;
 }
 

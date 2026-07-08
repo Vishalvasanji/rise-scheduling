@@ -296,20 +296,15 @@ export const DateInput: FC<{
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div className="date-cell">
       <input
         className={dirty ? "cell-input cell-input--dirty" : "cell-input"}
         value={draft}
         placeholder="mm/dd/yy"
         aria-label={ariaLabel}
-        style={{ textAlign: "center" }}
+        style={{ textAlign: "center", paddingRight: 16 }}
         onChange={(e) => setDraft(e.target.value)}
-        // A click opens the picker (not a text caret); keyboard focus lets you type.
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openPicker();
-        }}
+        onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             cancel.current = true;
@@ -335,6 +330,20 @@ export const DateInput: FC<{
           if (dir) focusCell(e.currentTarget, dir);
         }}
       />
+      {/* Calendar affordance: opens the native picker without stealing typing focus. */}
+      <button
+        type="button"
+        className="date-cell__pick"
+        tabIndex={-1}
+        aria-label="Open date picker"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openPicker();
+        }}
+      >
+        📅
+      </button>
       <input
         ref={picker}
         type="date"
