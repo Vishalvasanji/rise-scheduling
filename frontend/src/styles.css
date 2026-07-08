@@ -1024,6 +1024,65 @@ button {
   color: var(--text-2);
 }
 
+/* Save feedback: a floating pill pinned bottom-center — "Saving…" with a spinner
+   while the batch is in flight, then a green "Changes saved" confirmation that
+   auto-dismisses. Fixed position so it's visible wherever the grid is scrolled. */
+.status-pill {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  animation: status-pill-in 0.18s ease-out;
+}
+
+.status-pill--saving {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--separator-strong);
+}
+
+.status-pill--saved {
+  background: var(--green-ink);
+  color: #ffffff;
+}
+
+@keyframes status-pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid rgba(0, 113, 227, 0.25);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* A cell holding an unsaved edit is tinted (full-cell, square) so it reads as a
    filled spreadsheet cell and the batch is easy to eyeball. */
 .cell-input--dirty,

@@ -50,6 +50,10 @@ export function ProjectPage({
   const baseVersions = useRef<Map<number, number>>(new Map());
   const [saving, setSaving] = useState(false);
   const [bulkConflicts, setBulkConflicts] = useState<BulkConflict[] | null>(null);
+  // Post-save confirmation toast; auto-dismisses.
+  const [savedToast, setSavedToast] = useState(false);
+  const toastTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const {
     schedule,
@@ -144,6 +148,9 @@ export function ProjectPage({
         setDraft(new Map());
         setBulkConflicts(null);
         setEditMode(false);
+        setSavedToast(true);
+        window.clearTimeout(toastTimer.current);
+        toastTimer.current = window.setTimeout(() => setSavedToast(false), 2800);
       } else if (res.conflicts && res.conflicts.length > 0) {
         setBulkConflicts(res.conflicts);
       }
@@ -310,13 +317,27 @@ export function ProjectPage({
         <div className="edit-mode-banner">
           <span className="edit-mode-banner__dot" />
           <span className="edit-mode-banner__text">
-            You're in edit mode — changes are staged. Click 💾 to save or ✕ to cancel.
-            {draftCount ? (
+            {saving
+              ? "Saving changes…"
+              : "You're in edit mode — changes are staged. Click 💾 to save or ✕ to cancel."}
+            {!saving && draftCount ? (
               <span className="edit-mode-banner__meta">{` · ${draftCount} unsaved change${
                 draftCount === 1 ? "" : "s"
               }`}</span>
             ) : null}
           </span>
+        </div>
+      )}
+
+      {saving && (
+        <div className="status-pill status-pill--saving" role="status" aria-live="polite">
+          <span className="spinner" aria-hidden />
+          Saving changes…
+        </div>
+      )}
+      {savedToast && !saving && (
+        <div className="status-pill status-pill--saved" role="status" aria-live="polite">
+          ✓ Changes saved
         </div>
       )}
 
@@ -355,7 +376,7 @@ export function ProjectPage({
                   onClick={() => void save()}
                   disabled={saving || draftCount === 0}
                 >
-                  💾
+                  {saving ? <span className="spinner" aria-hidden /> : "💾"}
                 </button>
                 <button
                   className="icon-btn"
