@@ -30,6 +30,7 @@ class TaskUpdate(BaseModel):
     name: str | None = None
     wbs: str | None = None
     trade: str | None = None
+    building: str | None = None
     duration_days: int | None = Field(default=None, ge=0)
     percent_complete: float | None = Field(default=None, ge=0, le=100)
     status: TaskStatus | None = None

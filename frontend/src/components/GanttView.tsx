@@ -162,7 +162,7 @@ const GanttListTable: FC<{
               nameWidth={nameW}
               wbs={info?.wbs ?? ""}
               name={dt?.name ?? t.name}
-              building={info?.building}
+              building={editable && dt ? dt.building : info?.building}
               from={editable && dt ? dt.planned_start : t.start}
               to={editable && dt ? dt.planned_finish : t.end}
               days={editable && dt ? dt.duration_days : info?.days ?? 0}
@@ -180,6 +180,7 @@ const GanttListTable: FC<{
                   : undefined
               }
               dirtyName={has("name")}
+              dirtyBuilding={has("building")}
               dirtyFrom={has("actual_start") || has("start_no_earlier_than")}
               dirtyTo={has("actual_finish")}
               dirtyDays={has("duration_days")}
@@ -188,6 +189,11 @@ const GanttListTable: FC<{
                   ? (v) => {
                       if (v) meta?.onCell(base.id, { name: v });
                     }
+                  : undefined
+              }
+              onCommitBuilding={
+                editable && base
+                  ? (v) => meta?.onCell(base.id, { building: v || null })
                   : undefined
               }
               onCommitFrom={
