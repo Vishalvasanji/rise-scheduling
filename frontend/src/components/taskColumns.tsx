@@ -129,14 +129,34 @@ export function useSharedNameWidth() {
   return { nameWidth, onResizeStart };
 }
 
-// Spreadsheet-style navigation: after committing a cell with Enter, move focus to
-// the next editable cell in document order (Tab already does this natively).
-export function focusNextCell(current: HTMLElement): void {
+// Spreadsheet-style navigation between editable cells. Left/Right walk document
+// order (a row reads left-to-right); Up/Down move within the same column by
+// matching the cell's horizontal position. On arrival the target's text is
+// selected, so typing replaces it — exactly like moving the selection in Excel.
+export function focusCell(current: HTMLElement, dir: "up" | "down" | "left" | "right"): void {
   const cells = Array.from(
     document.querySelectorAll<HTMLElement>(".cell-input:not([disabled])"),
   );
-  const i = cells.indexOf(current);
-  if (i >= 0 && i + 1 < cells.length) cells[i + 1].focus();
+  let target: HTMLElement | undefined;
+  if (dir === "left" || dir === "right") {
+    const i = cells.indexOf(current);
+    target = dir === "right" ? cells[i + 1] : cells[i - 1];
+  } else {
+    const left = current.getBoundingClientRect().left;
+    const col = cells
+      .filter((c) => Math.abs(c.getBoundingClientRect().left - left) < 4)
+      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    const i = col.indexOf(current);
+    target = dir === "down" ? col[i + 1] : col[i - 1];
+  }
+  if (target) {
+    target.focus();
+    try {
+      (target as HTMLInputElement).select();
+    } catch {
+      /* not a text-selectable input */
+    }
+  }
 }
 
 // ---- Inline click-to-edit cell ------------------------------------------------
@@ -170,7 +190,7 @@ export const CellInput: FC<{
 }) => {
   const [draft, setDraft] = useState(value);
   const cancel = useRef(false);
-  const advance = useRef(false);
+  const nav = useRef<"up" | "down" | "left" | "right" | null>(null);
   useEffect(() => setDraft(value), [value]);
   return (
     <input
@@ -185,12 +205,26 @@ export const CellInput: FC<{
       onChange={(e) => setDraft(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          advance.current = true;
-          e.currentTarget.blur();
-        } else if (e.key === "Escape") {
+        const el = e.currentTarget;
+        // Number inputs can't report a caret, so arrows always leave them; text
+        // inputs move the caret until it's at an edge, then step to the next cell.
+        const num = el.type === "number";
+        const atStart = num || el.selectionStart === 0;
+        const atEnd = num || el.selectionEnd === el.value.length;
+        let dir: "up" | "down" | "left" | "right" | null = null;
+        if (e.key === "Enter" || e.key === "ArrowDown") dir = "down";
+        else if (e.key === "ArrowUp") dir = "up";
+        else if (e.key === "ArrowLeft" && atStart) dir = "left";
+        else if (e.key === "ArrowRight" && atEnd) dir = "right";
+        else if (e.key === "Escape") {
           cancel.current = true;
-          e.currentTarget.blur();
+          el.blur();
+          return;
+        }
+        if (dir) {
+          e.preventDefault();
+          nav.current = dir;
+          el.blur();
         }
       }}
       onBlur={(e) => {
@@ -200,10 +234,9 @@ export const CellInput: FC<{
           return;
         }
         if (draft.trim() !== value) onCommit(draft.trim());
-        if (advance.current) {
-          advance.current = false;
-          focusNextCell(e.currentTarget);
-        }
+        const dir = nav.current;
+        nav.current = null;
+        if (dir) focusCell(e.currentTarget, dir);
       }}
     />
   );
@@ -320,6 +353,7 @@ export const LeadCells: FC<{
   onToggle?: () => void;
   // When provided (Task grid only), these cells edit inline on click.
   onCommitName?: (value: string) => void;
+  onCommitBuilding?: (value: string) => void;
   onCommitDays?: (value: string) => void;
   onCommitFrom?: (value: string) => void;
   onCommitTo?: (value: string) => void;
@@ -328,6 +362,7 @@ export const LeadCells: FC<{
   constraintLabel?: string;
   // Per-field unsaved-edit tint (edit sessions).
   dirtyName?: boolean;
+  dirtyBuilding?: boolean;
   dirtyFrom?: boolean;
   dirtyTo?: boolean;
   dirtyDays?: boolean;
@@ -347,12 +382,14 @@ export const LeadCells: FC<{
   collapsed,
   onToggle,
   onCommitName,
+  onCommitBuilding,
   onCommitDays,
   onCommitFrom,
   onCommitTo,
   startConstrained,
   constraintLabel,
   dirtyName,
+  dirtyBuilding,
   dirtyFrom,
   dirtyTo,
   dirtyDays,
@@ -360,6 +397,7 @@ export const LeadCells: FC<{
 }) => {
   const indent = 8 + depth * 14;
   const editName = !isGroup && !!onCommitName;
+  const editBuilding = !isGroup && !!onCommitBuilding;
   const editDays = !isGroup && !isMilestone && !!onCommitDays;
   const editFrom = !isGroup && !!onCommitFrom;
   const editTo = !isGroup && !!onCommitTo;
@@ -407,10 +445,25 @@ export const LeadCells: FC<{
         )}
       </div>
       <div
-        style={{ ...cellBase, width: BUILDING_W, color: "var(--text-2)" }}
+        style={{
+          ...cellBase,
+          width: BUILDING_W,
+          color: "var(--text-2)",
+          padding: editBuilding ? 0 : undefined,
+          overflow: editBuilding ? "visible" : "hidden",
+        }}
         title={building ?? ""}
       >
-        {building || ""}
+        {editBuilding ? (
+          <CellInput
+            value={building ?? ""}
+            ariaLabel="Building"
+            dirty={dirtyBuilding}
+            onCommit={onCommitBuilding!}
+          />
+        ) : (
+          building || ""
+        )}
       </div>
       {afterName}
       <div

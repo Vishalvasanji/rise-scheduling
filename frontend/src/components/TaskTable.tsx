@@ -215,6 +215,7 @@ function Line({
             : undefined
         }
         dirtyName={has("name")}
+        dirtyBuilding={has("building")}
         dirtyFrom={dirtyFrom}
         dirtyTo={has("actual_finish")}
         dirtyDays={has("duration_days")}
@@ -224,6 +225,9 @@ function Line({
                 if (v) onCell(base.id, { name: v });
               }
             : undefined
+        }
+        onCommitBuilding={
+          editable ? (v) => onCell(base.id, { building: v || null }) : undefined
         }
         onCommitFrom={editable ? (v) => onCell(base.id, startFieldForEdit(base, v)) : undefined}
         onCommitTo={editable ? (v) => onCell(base.id, { actual_finish: v || null }) : undefined}

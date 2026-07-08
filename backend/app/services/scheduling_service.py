@@ -32,6 +32,7 @@ WRITABLE_TASK_FIELDS = {
     "name",
     "wbs",
     "trade",
+    "building",
     "duration_days",
     "percent_complete",
     "status",
