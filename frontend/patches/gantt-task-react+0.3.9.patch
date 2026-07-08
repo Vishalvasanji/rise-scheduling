@@ -1,7 +1,28 @@
 diff --git a/node_modules/gantt-task-react/dist/index.js b/node_modules/gantt-task-react/dist/index.js
-index 626bb39..21eb07b 100644
+index 626bb39..b5d0072 100644
 --- a/node_modules/gantt-task-react/dist/index.js
 +++ b/node_modules/gantt-task-react/dist/index.js
+@@ -133,7 +133,7 @@ var ganttDateRange = function ganttDateRange(tasks, viewMode, preStepsCount) {
+ 
+     case exports.ViewMode.Week:
+       newStartDate = startOfDate(newStartDate, "day");
+-      newStartDate = addToDate(getMonday(newStartDate), -7 * preStepsCount, "day");
++      newStartDate = addToDate(getSunday(newStartDate), -7 * preStepsCount, "day");
+       newEndDate = startOfDate(newEndDate, "day");
+       newEndDate = addToDate(newEndDate, 1.5, "month");
+       break;
+@@ -224,9 +224,9 @@ var getLocalDayOfWeek = function getLocalDayOfWeek(date, locale, format) {
+   return bottomValue;
+ };
+ 
+-var getMonday = function getMonday(date) {
++var getSunday = function getSunday(date) {
+   var day = date.getDay();
+-  var diff = date.getDate() - day + (day === 0 ? -6 : 1);
++  var diff = date.getDate() - day;
+   return new Date(date.setDate(diff));
+ };
+ 
 @@ -638,8 +638,11 @@ var GridBody = function GridBody(_ref) {
      }));
  
@@ -48,9 +69,30 @@ index 626bb39..21eb07b 100644
          key: date.getTime(),
          y: headerHeight * 0.8,
 diff --git a/node_modules/gantt-task-react/dist/index.modern.js b/node_modules/gantt-task-react/dist/index.modern.js
-index b372269..0ea274e 100644
+index b372269..9f00bf8 100644
 --- a/node_modules/gantt-task-react/dist/index.modern.js
 +++ b/node_modules/gantt-task-react/dist/index.modern.js
+@@ -132,7 +132,7 @@ var ganttDateRange = function ganttDateRange(tasks, viewMode, preStepsCount) {
+ 
+     case ViewMode.Week:
+       newStartDate = startOfDate(newStartDate, "day");
+-      newStartDate = addToDate(getMonday(newStartDate), -7 * preStepsCount, "day");
++      newStartDate = addToDate(getSunday(newStartDate), -7 * preStepsCount, "day");
+       newEndDate = startOfDate(newEndDate, "day");
+       newEndDate = addToDate(newEndDate, 1.5, "month");
+       break;
+@@ -223,9 +223,9 @@ var getLocalDayOfWeek = function getLocalDayOfWeek(date, locale, format) {
+   return bottomValue;
+ };
+ 
+-var getMonday = function getMonday(date) {
++var getSunday = function getSunday(date) {
+   var day = date.getDay();
+-  var diff = date.getDate() - day + (day === 0 ? -6 : 1);
++  var diff = date.getDate() - day;
+   return new Date(date.setDate(diff));
+ };
+ 
 @@ -637,8 +637,11 @@ var GridBody = function GridBody(_ref) {
      }));
  
