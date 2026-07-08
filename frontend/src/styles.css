@@ -598,41 +598,20 @@ button {
   margin: 0;
 }
 
-/* Date cells: hide the calendar glyph until hover/focus for a clean resting row. */
-.cell-input--date::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  cursor: pointer;
-}
-
-.cell-input--date:hover::-webkit-calendar-picker-indicator,
-.cell-input--date:focus::-webkit-calendar-picker-indicator {
-  opacity: 0.45;
-}
-
-/* From/To resting state: plain mmddyy text so the column matches the Gantt width.
-   Clicking swaps in .date-edit (the native picker), overlaid so it doesn't widen
-   the column. */
-.date-rest {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  width: 100%;
-  border-radius: 0;
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-
-.date-rest:hover {
-  background: rgba(0, 0, 0, 0.035);
-}
-
-.date-edit {
+/* The native date input that only hosts the picker: invisible and non-interactive
+   (opened programmatically on click), anchored to the cell so the calendar drops
+   right under it without widening the From/To column. */
+.date-picker-overlay {
   position: absolute;
-  top: 0;
   left: 0;
-  width: 130px;
-  z-index: 5;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ---- Trade typeahead --------------------------------------------------- */
@@ -1011,8 +990,7 @@ button {
 /* A cell holding an unsaved edit is tinted (full-cell, square) so it reads as a
    filled spreadsheet cell and the batch is easy to eyeball. */
 .cell-input--dirty,
-.cell-select--dirty,
-.date-rest--dirty {
+.cell-select--dirty {
   background: rgba(0, 113, 227, 0.12);
   border-radius: 0;
 }

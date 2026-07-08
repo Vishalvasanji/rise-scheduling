@@ -41,6 +41,39 @@ export function mmddyy(value: string | Date): string {
   return `${mm}/${dd}/${yy}`;
 }
 
+// Parse a typed date into a YYYY-MM-DD string, or null if it isn't a valid date.
+// Forgiving about how the user types it: "MM/DD/YY", "M/D/YYYY" (/, -, or .),
+// "MM/DD" (current year), or bare digits "MMDDYY" / "MMDDYYYY". Two-digit years map
+// to 2000+. Rejects impossible dates (e.g. 02/30) so a typo doesn't silently save.
+export function parseTypedDate(input: string): string | null {
+  const s = input.trim();
+  if (!s) return null;
+  let mm: number, dd: number, yy: number | undefined;
+  const sep = s.match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$/);
+  if (sep) {
+    mm = Number(sep[1]);
+    dd = Number(sep[2]);
+    yy = sep[3] === undefined ? undefined : Number(sep[3]);
+  } else if (/^\d{6}$/.test(s)) {
+    mm = Number(s.slice(0, 2));
+    dd = Number(s.slice(2, 4));
+    yy = Number(s.slice(4, 6));
+  } else if (/^\d{8}$/.test(s)) {
+    mm = Number(s.slice(0, 2));
+    dd = Number(s.slice(2, 4));
+    yy = Number(s.slice(4, 8));
+  } else {
+    return null;
+  }
+  if (yy === undefined) yy = new Date().getFullYear();
+  else if (yy < 100) yy += 2000;
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  const d = new Date(yy, mm - 1, dd);
+  // Reject overflow (e.g. Feb 30 rolls into March).
+  if (d.getFullYear() !== yy || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
+  return toISODate(d);
+}
+
 // Calendar days from `a` to `b` (b − a); negative when b is before a. Used for
 // the toolbar "days away" / "days left" countdowns.
 export function daysBetween(aIso: string, bIso: string): number {

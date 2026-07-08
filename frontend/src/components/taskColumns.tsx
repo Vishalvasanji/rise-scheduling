@@ -4,8 +4,14 @@
 // from the CSS custom properties so the two views stay on one design system.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties, FC, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { mmddyy } from "../lib/dates";
+import type {
+  CSSProperties,
+  FC,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
+import { mmddyy, parseTypedDate } from "../lib/dates";
 
 // Fixed widths (Task is the only adjustable one).
 export const WBS_W = 56;
@@ -133,7 +139,25 @@ export function useSharedNameWidth() {
 // order (a row reads left-to-right); Up/Down move within the same column by
 // matching the cell's horizontal position. On arrival the target's text is
 // selected, so typing replaces it — exactly like moving the selection in Excel.
-export function focusCell(current: HTMLElement, dir: "up" | "down" | "left" | "right"): void {
+export type CellDir = "up" | "down" | "left" | "right";
+
+// The spreadsheet-navigation intent of a keypress in an editable cell, or null if
+// the key should edit within the cell. Up/Down always leave; Enter drops down;
+// Left/Right leave only when the caret sits at the text edge (number inputs can't
+// report a caret, so they always leave). Shared by every editable cell.
+export function cellNavDir(e: ReactKeyboardEvent<HTMLInputElement>): CellDir | null {
+  const el = e.currentTarget;
+  const num = el.type === "number";
+  const atStart = num || el.selectionStart === 0;
+  const atEnd = num || el.selectionEnd === el.value.length;
+  if (e.key === "Enter" || e.key === "ArrowDown") return "down";
+  if (e.key === "ArrowUp") return "up";
+  if (e.key === "ArrowLeft" && atStart) return "left";
+  if (e.key === "ArrowRight" && atEnd) return "right";
+  return null;
+}
+
+export function focusCell(current: HTMLElement, dir: CellDir): void {
   const cells = Array.from(
     document.querySelectorAll<HTMLElement>(".cell-input:not([disabled])"),
   );
@@ -190,7 +214,7 @@ export const CellInput: FC<{
 }) => {
   const [draft, setDraft] = useState(value);
   const cancel = useRef(false);
-  const nav = useRef<"up" | "down" | "left" | "right" | null>(null);
+  const nav = useRef<CellDir | null>(null);
   useEffect(() => setDraft(value), [value]);
   return (
     <input
@@ -205,26 +229,16 @@ export const CellInput: FC<{
       onChange={(e) => setDraft(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
-        const el = e.currentTarget;
-        // Number inputs can't report a caret, so arrows always leave them; text
-        // inputs move the caret until it's at an edge, then step to the next cell.
-        const num = el.type === "number";
-        const atStart = num || el.selectionStart === 0;
-        const atEnd = num || el.selectionEnd === el.value.length;
-        let dir: "up" | "down" | "left" | "right" | null = null;
-        if (e.key === "Enter" || e.key === "ArrowDown") dir = "down";
-        else if (e.key === "ArrowUp") dir = "up";
-        else if (e.key === "ArrowLeft" && atStart) dir = "left";
-        else if (e.key === "ArrowRight" && atEnd) dir = "right";
-        else if (e.key === "Escape") {
+        if (e.key === "Escape") {
           cancel.current = true;
-          el.blur();
+          e.currentTarget.blur();
           return;
         }
+        const dir = cellNavDir(e);
         if (dir) {
           e.preventDefault();
           nav.current = dir;
-          el.blur();
+          e.currentTarget.blur();
         }
       }}
       onBlur={(e) => {
@@ -242,63 +256,95 @@ export const CellInput: FC<{
   );
 };
 
-// At rest, shows the date as plain mmddyy text — so the From/To columns stay the
-// exact same width as the Gantt list (a native date input's intrinsic width would
-// otherwise force the column wider). Clicking swaps to a native date picker
-// (opened via showPicker), positioned as an overlay so it doesn't widen the column.
-// `value` and the committed string are ISO (YYYY-MM-DD); an empty selection commits "".
+// A date cell that behaves like the others: it's a text input (so it joins arrow-key
+// navigation and shows MM/DD/YY at the column's width), you type the date and it's
+// parsed on commit, and — only on a mouse click — a native date picker opens instead
+// of a text caret. `value` and the committed string are ISO (YYYY-MM-DD); clearing
+// the text commits "". The hidden `type="date"` input exists solely to host the picker.
 export const DateInput: FC<{
   value: string | null;
   ariaLabel?: string;
   dirty?: boolean;
   onCommit: (value: string) => void;
 }> = ({ value, ariaLabel, dirty, onCommit }) => {
-  const [editing, setEditing] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState(value ? mmddyy(value) : "");
+  const cancel = useRef(false);
+  const nav = useRef<CellDir | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => setDraft(value ? mmddyy(value) : ""), [value]);
 
-  useEffect(() => {
-    if (!editing || !ref.current) return;
-    ref.current.focus();
-    const el = ref.current as HTMLInputElement & { showPicker?: () => void };
+  const commitText = () => {
+    const t = draft.trim();
+    if (t === "") {
+      if (value) onCommit(""); // cleared
+      return;
+    }
+    const iso = parseTypedDate(t);
+    if (iso && iso !== value) onCommit(iso);
+    else setDraft(value ? mmddyy(value) : ""); // normalize, or revert an unparseable typo
+  };
+
+  const openPicker = () => {
+    const el = picker.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!el) return;
+    el.focus();
     try {
       el.showPicker?.();
     } catch {
-      /* showPicker not available — the native control still works */
+      /* showPicker unavailable — the native control still works */
     }
-  }, [editing]);
-
-  if (!editing) {
-    return (
-      <span
-        className={dirty ? "date-rest date-rest--dirty" : "date-rest"}
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-      >
-        {value ? mmddyy(value) : "—"}
-      </span>
-    );
-  }
+  };
 
   return (
-    <input
-      ref={ref}
-      className="cell-input cell-input--date date-edit"
-      type="date"
-      defaultValue={value ?? ""}
-      aria-label={ariaLabel}
-      onClick={(e) => e.stopPropagation()}
-      onChange={(e) => {
-        onCommit(e.target.value);
-        setEditing(false);
-      }}
-      onBlur={(e) => {
-        const v = e.target.value;
-        setEditing(false);
-        if (v !== (value ?? "")) onCommit(v);
-      }}
-    />
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <input
+        className={dirty ? "cell-input cell-input--dirty" : "cell-input"}
+        value={draft}
+        placeholder="mm/dd/yy"
+        aria-label={ariaLabel}
+        style={{ textAlign: "center" }}
+        onChange={(e) => setDraft(e.target.value)}
+        // A click opens the picker (not a text caret); keyboard focus lets you type.
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openPicker();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            cancel.current = true;
+            e.currentTarget.blur();
+            return;
+          }
+          const dir = cellNavDir(e);
+          if (dir) {
+            e.preventDefault();
+            nav.current = dir;
+            e.currentTarget.blur();
+          }
+        }}
+        onBlur={(e) => {
+          if (cancel.current) {
+            cancel.current = false;
+            setDraft(value ? mmddyy(value) : "");
+            return;
+          }
+          commitText();
+          const dir = nav.current;
+          nav.current = null;
+          if (dir) focusCell(e.currentTarget, dir);
+        }}
+      />
+      <input
+        ref={picker}
+        type="date"
+        className="date-picker-overlay"
+        tabIndex={-1}
+        aria-hidden
+        value={value ?? ""}
+        onChange={(e) => onCommit(e.target.value)}
+      />
+    </div>
   );
 };
 
