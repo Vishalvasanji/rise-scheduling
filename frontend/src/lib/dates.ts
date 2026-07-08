@@ -82,6 +82,22 @@ export function daysBetween(aIso: string, bIso: string): number {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
+// The finish date `n` inclusive working days (Mon–Fri) from `startISO` — the inverse
+// of businessDays(), matching the pilot backend calendar. n=1 finishes the same day;
+// a start on a weekend rolls to the next Monday first. Used to keep the To date in
+// sync when Days (or the start) changes, before the server recomputes on Save.
+export function addBusinessDays(startISO: string, n: number): string {
+  const d = parseLocalDate(startISO);
+  const isWeekend = (x: Date) => x.getDay() === 0 || x.getDay() === 6;
+  while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  let count = 1; // the start day itself is working day 1
+  while (count < n) {
+    d.setDate(d.getDate() + 1);
+    if (!isWeekend(d)) count++;
+  }
+  return toISODate(d);
+}
+
 // Inclusive working-day count (Mon–Fri) between two dates, matching the backend
 // calendar (Mon–Fri, no holidays in the pilot). Used for summary-row durations.
 export function businessDays(start: string | Date, finish: string | Date): number {
