@@ -1,0 +1,46 @@
+name: Auto-merge
+
+# Merge automation PRs automatically once CI is green, so branches shipped by the
+# assistant don't need a manual merge. Fires when the CI workflow finishes; only
+# acts on PRs from `claude/*` branches, so human WIP branches are never touched.
+# (Broaden the branch filter below if you want all PRs to auto-merge.)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    # Only when CI succeeded on a pull_request run (not pushes to main).
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the PR whose CI just passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          # Open PRs whose head is this commit and whose branch is a claude/* branch.
+          numbers=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+            --jq '.[] | select(.state=="open") | select(.head.ref | startswith("claude/")) | .number')
+          if [ -z "$numbers" ]; then
+            echo "No open claude/* PR at $SHA; nothing to merge."
+            exit 0
+          fi
+          for n in $numbers; do
+            echo "PR #$n: CI is green — merging."
+            # A draft can't be merged; promote it first (the assistant opens drafts).
+            if [ "$(gh pr view "$n" --repo "$REPO" --json isDraft --jq '.isDraft')" = "true" ]; then
+              gh pr ready "$n" --repo "$REPO"
+            fi
+            gh pr merge "$n" --repo "$REPO" --squash
+          done
