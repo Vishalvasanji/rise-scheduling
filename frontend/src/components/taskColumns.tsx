@@ -229,6 +229,10 @@ export const CellInput: FC<{
       onChange={(e) => setDraft(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
+        // Keep keystrokes out of ancestors: the Gantt wrapper preventDefault()s
+        // every keydown (it scrolls on arrows), which silently cancels typing in
+        // any input rendered inside it.
+        e.stopPropagation();
         if (e.key === "Escape") {
           cancel.current = true;
           e.currentTarget.blur();
@@ -306,6 +310,8 @@ export const DateInput: FC<{
         onChange={(e) => setDraft(e.target.value)}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
+          // See CellInput: the Gantt wrapper cancels bubbled keydowns.
+          e.stopPropagation();
           if (e.key === "Escape") {
             cancel.current = true;
             e.currentTarget.blur();
