@@ -11,13 +11,17 @@ import { useAuth } from "./hooks/useAuth";
 import "./styles.css";
 
 export default function App() {
-  const { user, status, login, logout } = useAuth();
+  const { user, status, waking, login, logout } = useAuth();
 
   if (status === "loading") {
     return (
       <div className="splash">
         <div className="spinner" />
-        <p className="splash-text">Loading RISE Schedule Hub…</p>
+        <p className="splash-text">
+          {waking
+            ? "Waking up the server — this can take a minute…"
+            : "Loading RISE Schedule Hub…"}
+        </p>
       </div>
     );
   }
