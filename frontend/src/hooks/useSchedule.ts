@@ -7,7 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   bulkUpdateTasks as apiBulkUpdate,
+  createDependency as apiCreateDependency,
   createTask as apiCreateTask,
+  deleteDependency as apiDeleteDependency,
   deleteTask as apiDeleteTask,
   getSchedule,
   updateTask as apiUpdateTask,
@@ -15,7 +17,7 @@ import {
   type TaskEdit,
 } from "../api/schedule";
 import { ApiError } from "../api/client";
-import type { ScheduleOut, TaskOut } from "../types/schedule";
+import type { DependencyType, ScheduleOut, TaskOut } from "../types/schedule";
 
 const POLL_MS = 10000;
 
@@ -196,6 +198,43 @@ export function useSchedule(projectId: number | null, paused = false) {
     [projectId, refresh, reportError],
   );
 
+  // Dependency edits apply immediately (like add/delete task). A link that would
+  // form a cycle is rejected by the engine (409) and lands in the error banner
+  // via reportError's circular_dependency branch.
+  const addDependency = useCallback(
+    async (predecessorId: number, successorId: number, type: DependencyType, lagDays: number) => {
+      try {
+        await apiCreateDependency(predecessorId, successorId, type, lagDays);
+        setError(null);
+        await refresh();
+      } catch (e) {
+        // Refresh first: a successful refetch clears the error state, so report
+        // after it or the rejection message (e.g. the cycle) would vanish.
+        await refresh();
+        reportError(e);
+      }
+    },
+    [refresh, reportError],
+  );
+
+  const removeDependency = useCallback(
+    async (dependencyId: number) => {
+      try {
+        await apiDeleteDependency(dependencyId);
+        setError(null);
+        await refresh();
+      } catch (e) {
+        await refresh();
+        reportError(e);
+      }
+    },
+    [refresh, reportError],
+  );
+
+  // Surface a client-side validation message in the same error banner the API
+  // errors use (e.g. "no task with WBS 9.9.9").
+  const showError = useCallback((message: string) => setError(message), []);
+
   // Apply a whole batch of edits at once ("Save all"). On success we adopt the
   // recomputed schedule the server returns (one round trip). A 409 batch conflict
   // resolves to the conflicting rows so the caller can offer to overwrite.
@@ -241,6 +280,9 @@ export function useSchedule(projectId: number | null, paused = false) {
     updateTask,
     addTask,
     removeTask,
+    addDependency,
+    removeDependency,
+    showError,
     saveBulk,
   };
 }
