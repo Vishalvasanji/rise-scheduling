@@ -1078,6 +1078,58 @@ button {
   opacity: 1;
 }
 
+/* Predecessor chips ("1.1.3 SS+1") in the Preds column; × removes in edit mode,
+   and the small trailing input links a typed WBS ref on Enter. */
+.pred-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pred-chip__x {
+  border: none;
+  background: transparent;
+  padding: 0 1px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.pred-chip__x:hover {
+  color: var(--red-ink);
+}
+
+.pred-add {
+  flex: 1 1 34px;
+  min-width: 34px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  color: inherit;
+  padding: 1px 2px;
+}
+
+.pred-add::placeholder {
+  color: var(--text-3);
+}
+
+.pred-add:focus {
+  outline: none;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--cell-active);
+  border-radius: 3px;
+}
+
 /* Save feedback lives in the banner: while saving, the dot becomes a spinner and
    the text reads "Saving changes…"; on success the banner turns green ("✓ Changes
    saved"), auto-dismisses, and can be closed early with its ✕. */

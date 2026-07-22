@@ -12,7 +12,7 @@ import { useElementSize } from "../hooks/useElementSize";
 import { buildRows, visibleRows } from "../lib/rollup";
 import { addDaysISO, daysBetween, mmddyy, startOfWeekISO, toISODate } from "../lib/dates";
 import type { BulkEdit } from "../api/schedule";
-import type { ChangeType, TaskOut } from "../types/schedule";
+import type { ChangeType, DependencyType, TaskOut } from "../types/schedule";
 
 const VIEW_MODES: ViewMode[] = [ViewMode.Day, ViewMode.Week, ViewMode.Month];
 
@@ -64,6 +64,9 @@ export function ProjectPage({
     refresh,
     addTask,
     removeTask,
+    addDependency,
+    removeDependency,
+    showError,
     saveBulk,
   } = useSchedule(projectId, editMode);
   const { proposal, busy, apply, discard, undoLast } = useProposal(projectId, refresh);
@@ -191,6 +194,40 @@ export function ProjectPage({
       if (created) baseVersions.current.set(created.id, created.version);
     },
     [schedule, addTask],
+  );
+
+  // Predecessor chips label links by the other task's WBS (name as fallback).
+  const predLabel = useCallback(
+    (taskId: number) => {
+      const t = schedule?.tasks.find((x) => x.id === taskId);
+      return t?.wbs || t?.name || String(taskId);
+    },
+    [schedule],
+  );
+
+  // Parse a typed predecessor ref — "1.1.3", "1.1.3 SS", "1.1.3 FF+2" — resolve
+  // the WBS, and link it (FS+0 default). Bad refs surface in the error banner;
+  // cycles are rejected server-side with the cycle path.
+  const handleAddDep = useCallback(
+    (successorId: number, text: string) => {
+      const m = text.match(/^([\w.]+)\s*(fs|ss|ff|sf)?\s*([+-]\d+)?$/i);
+      if (!m) {
+        showError(`Couldn't read "${text}" — use a WBS ref like "1.1.3", "1.1.3 SS" or "1.1.3 FF+2".`);
+        return;
+      }
+      const pred = schedule?.tasks.find((t) => t.wbs === m[1]);
+      if (!pred) {
+        showError(`No task with WBS "${m[1]}".`);
+        return;
+      }
+      if (pred.id === successorId) {
+        showError("A task can't depend on itself.");
+        return;
+      }
+      const type = (m[2]?.toUpperCase() ?? "FS") as DependencyType;
+      void addDependency(pred.id, successorId, type, m[3] ? Number(m[3]) : 0);
+    },
+    [schedule, addDependency, showError],
   );
 
   // Delete applies immediately; drop any staged edits for that row so a later Save
@@ -535,6 +572,10 @@ export function ProjectPage({
               onCell={setCell}
               onAdd={(code) => void handleAdd(code)}
               onDelete={handleDelete}
+              dependencies={schedule.dependencies}
+              predLabel={predLabel}
+              onAddDep={handleAddDep}
+              onRemoveDep={(id) => void removeDependency(id)}
               changeStatus={review ? changeStatus : undefined}
             />
           </div>

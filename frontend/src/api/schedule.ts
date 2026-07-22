@@ -41,6 +41,9 @@ export const createDependency = (
   lag_days = 0,
 ) => api.post("/dependencies", { predecessor_id, successor_id, type, lag_days });
 
+export const deleteDependency = (dependencyId: number) =>
+  api.del(`/dependencies/${dependencyId}`);
+
 // ---- Pending "what-if" proposal (shared with chat) ----
 
 export const getProposal = (projectId: number) =>
