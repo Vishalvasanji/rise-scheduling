@@ -35,6 +35,8 @@ interface Props {
   draft: Map<number, Partial<TaskOut>>;
   /** Stage a change into the draft (does NOT hit the server until Save). */
   onCell: (taskId: number, fields: Partial<TaskOut>) => void;
+  /** Create a task under the given group (edit mode; applies immediately). */
+  onAdd?: (groupCode: string) => void;
   onDelete: (taskId: number) => void;
   /** Review mode: task id -> change kind. Present => tint rows + read-only. */
   changeStatus?: Map<number, ChangeType>;
@@ -69,6 +71,7 @@ export function TaskTable({
   editMode,
   draft,
   onCell,
+  onAdd,
   onDelete,
   changeStatus,
 }: Props) {
@@ -95,6 +98,7 @@ export function TaskTable({
             nameWidth={nameWidth}
             collapsed={collapsed.has(r.id)}
             onToggle={() => onToggle(r.id)}
+            onAdd={editable && onAdd ? () => onAdd(r.code) : undefined}
           />
         ) : (
           <Line
@@ -119,11 +123,13 @@ function GroupLine({
   nameWidth,
   collapsed,
   onToggle,
+  onAdd,
 }: {
   row: GroupRow;
   nameWidth: number;
   collapsed: boolean;
   onToggle: () => void;
+  onAdd?: () => void;
 }) {
   return (
     <div className="task-grid__row task-grid__group" style={bodyRowStyle}>
@@ -139,6 +145,7 @@ function GroupLine({
         isGroup
         collapsed={collapsed}
         onToggle={onToggle}
+        onAddChild={onAdd}
         afterName={<div style={{ ...cellBase, width: TRADE_W }} />}
       />
       <div style={{ ...cellCenter, width: FLOAT_W, color: "var(--text-3)" }}>—</div>
@@ -301,11 +308,28 @@ function Line({
       <div style={{ ...cellCenter, width: CRIT_W, color: "var(--red)" }}>
         {base.is_critical ? "●" : ""}
       </div>
-      <div style={{ ...cellBase, width: DEL_W }}>
+      <div style={{ ...cellBase, width: DEL_W, gap: 6 }}>
         {editable && (
-          <button className="link-danger" onClick={() => onDelete(base.id)}>
-            delete
-          </button>
+          <>
+            <button
+              className={task.is_milestone ? "milestone-toggle milestone-toggle--on" : "milestone-toggle"}
+              title={task.is_milestone ? "Convert to regular task" : "Convert to milestone"}
+              aria-label={task.is_milestone ? "Convert to regular task" : "Convert to milestone"}
+              onClick={() =>
+                onCell(
+                  base.id,
+                  task.is_milestone
+                    ? { is_milestone: false, duration_days: 1 }
+                    : { is_milestone: true, duration_days: 0 },
+                )
+              }
+            >
+              ◆
+            </button>
+            <button className="link-danger" onClick={() => onDelete(base.id)}>
+              delete
+            </button>
+          </>
         )}
       </div>
     </div>

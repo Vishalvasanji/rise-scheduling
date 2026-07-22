@@ -62,6 +62,7 @@ export function ProjectPage({
     conflict,
     dismissConflict,
     refresh,
+    addTask,
     removeTask,
     saveBulk,
   } = useSchedule(projectId, editMode);
@@ -157,6 +158,39 @@ export function ProjectPage({
       // Other errors surface in the banner; stay in the session with the draft intact.
     },
     [draft, saveBulk],
+  );
+
+  // Add applies immediately (like delete): the new row appears via the returned
+  // refresh and is then edited inline. Its WBS is the next child index under the
+  // clicked group (or the next top-level index from the toolbar +).
+  const handleAdd = useCallback(
+    async (groupCode: string | null) => {
+      const all = schedule?.tasks ?? [];
+      let wbs: string | null = null;
+      if (groupCode) {
+        let max = 0;
+        for (const t of all) {
+          if (!t.wbs || !t.wbs.startsWith(groupCode + ".")) continue;
+          const n = Number(t.wbs.slice(groupCode.length + 1).split(".")[0]);
+          if (Number.isFinite(n)) max = Math.max(max, n);
+        }
+        wbs = `${groupCode}.${max + 1}`;
+      } else {
+        let has = false;
+        let max = 0;
+        for (const t of all) {
+          if (!t.wbs) continue;
+          has = true;
+          const n = Number(t.wbs.split(".")[0]);
+          if (Number.isFinite(n)) max = Math.max(max, n);
+        }
+        wbs = has ? String(max + 1) : null;
+      }
+      const created = await addTask({ name: "New task", wbs, duration_days: 5 });
+      // Register its version so the ongoing session's batch save can lock on it.
+      if (created) baseVersions.current.set(created.id, created.version);
+    },
+    [schedule, addTask],
   );
 
   // Delete applies immediately; drop any staged edits for that row so a later Save
@@ -375,6 +409,15 @@ export function ProjectPage({
             (editMode ? (
               <>
                 <button
+                  className="icon-btn"
+                  title="Add task"
+                  aria-label="Add task"
+                  onClick={() => void handleAdd(null)}
+                  disabled={saving}
+                >
+                  ＋
+                </button>
+                <button
                   className="icon-btn icon-btn--primary"
                   title={saving ? "Saving…" : "Save changes"}
                   aria-label="Save changes"
@@ -490,6 +533,7 @@ export function ProjectPage({
               editMode={editMode && !review}
               draft={editMode && !review ? draft : NO_DRAFT}
               onCell={setCell}
+              onAdd={(code) => void handleAdd(code)}
               onDelete={handleDelete}
               changeStatus={review ? changeStatus : undefined}
             />
