@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -44,12 +45,20 @@ def _build_engine(url: str) -> Engine:
     is_libsql = "+libsql" in url  # Turso (libSQL) — NOT pysqlite
 
     connect_args: dict = {}
+    kwargs: dict = {}
     if is_libsql:
         # Pass the auth token via connect_args; check_same_thread is pysqlite-only.
         url, connect_args = _prepare_libsql(url)
+        # No connection pooling for Turso: the server closes idle Hrana streams,
+        # and the libsql driver PANICS (pyo3 PanicException on .cursor()) instead
+        # of raising a catchable disconnect error when a stale pooled connection
+        # is reused — which surfaced as hung requests + opaque 500s. A fresh
+        # connection per checkout costs ~one extra round trip and removes the
+        # whole stale-connection failure class.
+        kwargs["poolclass"] = NullPool
     elif is_sqlite_family:
         connect_args["check_same_thread"] = False
-    engine = create_engine(url, connect_args=connect_args, future=True)
+    engine = create_engine(url, connect_args=connect_args, future=True, **kwargs)
 
     # PRAGMA foreign_keys is a local-pysqlite concern; on Turso auth/url config
     # travels in the connection string and this listener does not apply.
