@@ -126,6 +126,24 @@ def create_app() -> FastAPI:
             )
         return await call_next(request)
 
+    # Unhandled exceptions normally escape to Starlette's outermost error handler,
+    # whose bare 500 bypasses the CORS layer — the browser then can't read it and
+    # reports an opaque "Failed to fetch". Convert crashes to a JSON 500 *inside*
+    # the CORS middleware so the frontend always gets a readable error.
+    @app.middleware("http")
+    async def _errors_as_json(request: Request, call_next):  # noqa: ANN001,ANN202
+        try:
+            return await call_next(request)
+        except Exception:  # noqa: BLE001 — last-resort boundary
+            logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "internal_error",
+                    "detail": "Something went wrong on the server — try again.",
+                },
+            )
+
     # FRONTEND_ORIGIN may be a comma-separated list (e.g. the Vercel prod URL plus
     # localhost for dev), so the same backend serves local and hosted front ends.
     allowed_origins = [o.strip() for o in settings.frontend_origin.split(",") if o.strip()]
