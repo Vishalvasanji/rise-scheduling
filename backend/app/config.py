@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     # yourself (local dev, CI) — the app then assumes the schema is already there.
     migrate_on_startup: bool = True
 
+    # Seeded temp passwords (env-overridable: ADMIN_SEED_PASSWORD / DEMO_SEED_PASSWORD).
+    # The literals are DEV defaults only — every seeded user is created with
+    # must_change_password=True, so first real login forces a rotation regardless.
+    admin_seed_password: str = "RiseAdmin#2026"
+    demo_seed_password: str = "demo-pilot-password"
+
     # Auth (pilot only, behind one swappable module).
     auth_mode: str = "jwt"
     auth_secret: str = "change-me-in-real-deployments-this-is-a-pilot-dummy-secret"

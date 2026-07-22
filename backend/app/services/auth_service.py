@@ -40,6 +40,19 @@ def authenticate(session: Session, email: str, password: str) -> str:
     return backend.issue_token(subject=user.email, claims={"role": user.role})
 
 
+def change_password(
+    session: Session, user: User, current_password: str, new_password: str
+) -> None:
+    """Self-service rotation: verify the current password, write the new hash, and
+    clear the forced-change flag. Raises AuthError on a wrong current password."""
+    backend = get_auth_backend()
+    if not backend.verify_password(current_password, user.password_hash):
+        raise AuthError("Current password is incorrect")
+    user.password_hash = backend.hash_password(new_password)
+    user.must_change_password = False
+    session.commit()
+
+
 def issue_mcp_access_token(email: str, ttl_minutes: int | None = None) -> str:
     """A short-lived OAuth access token for the Claude.ai connector: the same
     ``scope: "mcp"`` JWT the MCP server verifies, so per-user scoping/attribution are

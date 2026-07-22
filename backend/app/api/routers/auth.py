@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import time
+
 import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.api.deps import CurrentUserDep, SessionDep
 from app.auth import AuthError
 from app.config import get_settings
 from app.repositories import oauth_repo, user_repo
 from app.schemas.auth import (
+    ChangePasswordRequest,
     ConnectorTokenResponse,
     LoginRequest,
     MeResponse,
@@ -19,16 +22,64 @@ from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# In-process brute-force throttle on login: after MAX_FAILS failed attempts for the
+# same email+client-IP within WINDOW_S, further attempts get 429 until the window
+# drains. Per-instance state — fine for the single-dyno pilot.
+_LOGIN_FAILS: dict[str, list[float]] = {}
+_MAX_FAILS = 5
+_WINDOW_S = 60.0
+
+
+def _throttle_key(email: str, request: Request) -> str:
+    host = request.client.host if request.client else "unknown"
+    return f"{email.strip().lower()}|{host}"
+
+
+def _recent_fails(key: str) -> list[float]:
+    now = time.monotonic()
+    fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < _WINDOW_S]
+    if fails:
+        _LOGIN_FAILS[key] = fails
+    else:
+        _LOGIN_FAILS.pop(key, None)
+    return fails
+
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, session: SessionDep):
+def login(payload: LoginRequest, session: SessionDep, request: Request):
+    key = _throttle_key(payload.email, request)
+    if len(_recent_fails(key)) >= _MAX_FAILS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed attempts — try again in a minute.",
+            headers={"Retry-After": str(int(_WINDOW_S))},
+        )
     try:
         token = auth_service.authenticate(session, payload.email, payload.password)
     except AuthError as exc:
+        _LOGIN_FAILS.setdefault(key, []).append(time.monotonic())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         ) from exc
+    _LOGIN_FAILS.pop(key, None)
     return TokenResponse(access_token=token)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: ChangePasswordRequest, user: CurrentUserDep, session: SessionDep
+):
+    """Self-service rotation; also clears the forced-change flag set by admin
+    resets and seeded temp passwords."""
+    try:
+        auth_service.change_password(
+            session, user, payload.current_password, payload.new_password
+        )
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/claude-status")
@@ -81,4 +132,5 @@ def me(user: CurrentUserDep, session: SessionDep):
         role=user.role,
         is_admin=user.role == "admin",
         project_ids=user_repo.assigned_project_ids(session, user.id),
+        must_change_password=user.must_change_password,
     )

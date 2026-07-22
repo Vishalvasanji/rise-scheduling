@@ -37,6 +37,8 @@ def create_user(
         full_name=full_name,
         password_hash=get_auth_backend().hash_password(password),
         role=role,
+        # The admin issued this password; the user must set their own on first login.
+        must_change_password=True,
     )
     user_repo.set_projects(session, user.id, project_ids or [])
     session.commit()
@@ -60,6 +62,8 @@ def update_user(
         fields["role"] = role
     if password:
         fields["password_hash"] = get_auth_backend().hash_password(password)
+        # An admin reset is a temp password; force the user to set their own.
+        fields["must_change_password"] = True
     user = user_repo.update(session, user_id, fields)
     session.commit()
     return user

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -19,6 +19,11 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     # Coarse role label kept for display; write rules are not enforced in pilot.
     role: Mapped[str] = mapped_column(String, nullable=False, default="member")
+    # True while the user is on an admin-issued (or seeded) temp password; the
+    # frontend forces a change before the app renders. Cleared by change-password.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
