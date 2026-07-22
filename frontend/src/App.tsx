@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listProjects } from "./api/schedule";
 import type { ProjectOut } from "./types/schedule";
 import { getClaudeStatus, type Me } from "./api/auth";
+import { ChangePasswordForm } from "./components/ChangePasswordForm";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -11,7 +12,7 @@ import { useAuth } from "./hooks/useAuth";
 import "./styles.css";
 
 export default function App() {
-  const { user, status, waking, login, logout } = useAuth();
+  const { user, status, waking, login, logout, reload } = useAuth();
 
   if (status === "loading") {
     return (
@@ -30,10 +31,27 @@ export default function App() {
     return <LoginPage onLogin={login} />;
   }
 
-  return <AuthedApp user={user} onLogout={logout} />;
+  // Temp password (admin-issued or seeded): force a rotation before the app.
+  if (user.must_change_password) {
+    return (
+      <div className="splash">
+        <ChangePasswordForm forced onDone={() => void reload()} />
+      </div>
+    );
+  }
+
+  return <AuthedApp user={user} onLogout={logout} onPasswordChanged={() => void reload()} />;
 }
 
-function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
+function AuthedApp({
+  user,
+  onLogout,
+  onPasswordChanged,
+}: {
+  user: Me;
+  onLogout: () => void;
+  onPasswordChanged: () => void;
+}) {
   const [projects, setProjects] = useState<ProjectOut[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [tab, setTab] = useState<"gantt" | "grid" | "activity">("gantt");
@@ -41,6 +59,7 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [claudeConnected, setClaudeConnected] = useState<boolean | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(() => {
     setStatus("loading");
@@ -170,11 +189,32 @@ function AuthedApp({ user, onLogout }: { user: Me; onLogout: () => void }) {
           <span className="user-chip" title={user.email}>
             {userLabel}
           </span>
+          <button
+            className="btn-ghost"
+            title="Change password"
+            onClick={() => setShowPassword(true)}
+          >
+            Change password
+          </button>
           <button className="btn-ghost" onClick={onLogout}>
             Log out
           </button>
         </div>
       </header>
+
+      {showPassword && (
+        <div className="modal-backdrop" onClick={() => setShowPassword(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <ChangePasswordForm
+              onDone={() => {
+                setShowPassword(false);
+                onPasswordChanged();
+              }}
+              onCancel={() => setShowPassword(false)}
+            />
+          </div>
+        </div>
+      )}
 
       <main className="content">
         {view === "connect" ? (

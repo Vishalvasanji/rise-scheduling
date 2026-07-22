@@ -8,7 +8,15 @@ export interface Me {
   role: string;
   is_admin: boolean;
   project_ids: number[];
+  /** True while on an admin-issued/seeded temp password; the app forces a change. */
+  must_change_password: boolean;
 }
+
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  api.post<void>("/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 
 export async function login(email: string, password: string): Promise<void> {
   const r = await api.post<{ access_token: string }>("/auth/login", { email, password });
