@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   bulkUpdateTasks as apiBulkUpdate,
+  createTask as apiCreateTask,
   deleteTask as apiDeleteTask,
   getSchedule,
   updateTask as apiUpdateTask,
@@ -176,6 +177,25 @@ export function useSchedule(projectId: number | null, paused = false) {
     [refresh, reportError],
   );
 
+  // Create a task immediately (like delete, not staged) and return it so the
+  // caller can register its version for the ongoing edit session.
+  const addTask = useCallback(
+    async (fields: Partial<TaskOut>): Promise<TaskOut | null> => {
+      if (projectId == null) return null;
+      try {
+        const created = await apiCreateTask(projectId, fields);
+        setError(null);
+        await refresh();
+        return created;
+      } catch (e) {
+        reportError(e);
+        await refresh();
+        return null;
+      }
+    },
+    [projectId, refresh, reportError],
+  );
+
   // Apply a whole batch of edits at once ("Save all"). On success we adopt the
   // recomputed schedule the server returns (one round trip). A 409 batch conflict
   // resolves to the conflicting rows so the caller can offer to overwrite.
@@ -219,6 +239,7 @@ export function useSchedule(projectId: number | null, paused = false) {
     dismissConflict,
     refresh,
     updateTask,
+    addTask,
     removeTask,
     saveBulk,
   };

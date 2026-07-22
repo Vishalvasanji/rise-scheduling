@@ -1024,6 +1024,60 @@ button {
   color: var(--text-2);
 }
 
+/* Edit-mode structure controls: "+" on group rows (revealed on hover) creates a
+   task in that group; the ◆ toggle in the actions cell converts task <-> milestone. */
+.group-add {
+  margin-left: 8px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--separator-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+
+.task-grid__row:hover .group-add,
+.group-add:focus-visible {
+  opacity: 1;
+}
+
+.group-add:hover {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.milestone-toggle {
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-3);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.1s ease, color 0.1s ease;
+}
+
+.milestone-toggle:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+.milestone-toggle--on {
+  color: var(--blue);
+  opacity: 1;
+}
+
 /* Save feedback lives in the banner: while saving, the dot becomes a spinner and
    the text reads "Saving changes…"; on success the banner turns green ("✓ Changes
    saved"), auto-dismisses, and can be closed early with its ✕. */

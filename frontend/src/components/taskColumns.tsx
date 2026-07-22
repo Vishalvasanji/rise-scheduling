@@ -412,6 +412,8 @@ export const LeadCells: FC<{
   isGroup?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** Edit mode: show a "+" on group rows that creates a task in this group. */
+  onAddChild?: () => void;
   // When provided (Task grid only), these cells edit inline on click.
   onCommitName?: (value: string) => void;
   onCommitBuilding?: (value: string) => void;
@@ -442,6 +444,7 @@ export const LeadCells: FC<{
   isGroup,
   collapsed,
   onToggle,
+  onAddChild,
   onCommitName,
   onCommitBuilding,
   onCommitDays,
@@ -504,6 +507,20 @@ export const LeadCells: FC<{
             {name}
           </>
         )}
+        {isGroup && onAddChild ? (
+          <button
+            className="group-add"
+            title="Add task in this group"
+            aria-label={`Add task in ${name}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddChild();
+            }}
+          >
+            +
+          </button>
+        ) : null}
       </div>
       <div
         style={{
